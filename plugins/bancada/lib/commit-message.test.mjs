@@ -303,3 +303,38 @@ test("a message the gate cannot read is not silently treated as trailer-free", (
   const v = decide("git commit -F message.txt", { denyTrailers: ["^Co-Authored-By:.*Claude"] });
   assert.equal(v.decision, "ask", "unreadable escalates rather than passing");
 });
+
+// --- every -m, not just the first ---
+
+test("a trailer in a second -m is seen, not skipped", () => {
+  // `git commit -m subject -m body` is ordinary, and git joins the parts. A
+  // reader that took only the first -m let an attribution trailer through a
+  // rule written to catch it. Found by the end-to-end harness, not by a unit
+  // test, because every unit test used a single -m.
+  const cmd =
+    'git commit -m "feat: add a thing" -m "Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"';
+  const v = decide(cmd, { denyTrailers: ["^Co-Authored-By:.*Claude"] });
+  assert.equal(v.decision, "deny");
+  assert.equal(v.check, "commit-trailer");
+});
+
+test("the subject is still the first line of the first -m", () => {
+  const r = extractSubject('git commit -m "feat: the subject" -m "a body paragraph"');
+  assert.equal(r.subject, "feat: the subject");
+  assert.match(r.message, /a body paragraph/);
+});
+
+test("the parts are joined the way git joins them, as separate paragraphs", () => {
+  const r = extractSubject('git commit -m "one" -m "two" -m "three"');
+  assert.deepEqual(r.message.split(String.fromCharCode(10, 10)), ["one", "two", "three"]);
+});
+
+test("subject rules still apply to a multi-part message", () => {
+  assert.equal(decide('git commit -m "adding a thing" -m "body"').check, "commit-conventional");
+  assert.equal(decide('git commit -m "feat: add a thing" -m "body"').decision, "allow");
+});
+
+test("mixed quoting across parts is handled", () => {
+  const r = extractSubject("git commit -m \"feat: x\" -m 'Co-Authored-By: Someone'");
+  assert.match(r.message, /Co-Authored-By: Someone/);
+});

@@ -111,19 +111,27 @@ export function extractSubject(command) {
     return { kind: "unreadable", subject: null, message: null, why: "message comes from a file or an existing commit" };
   }
 
-  // -m "..." / -m '...' / --message="..." / -m bare-word
-  const quoted = command.match(/(?:-m|--message)(?:=|\s+)(['"])([\s\S]*?)\1/);
-  if (quoted) return inline(quoted[2]);
-
-  const bare = command.match(/(?:-m|--message)(?:=|\s+)(\S+)/);
-  if (bare) return inline(bare[1]);
+  // Every -m, not just the first. `git commit -m subject -m body` is an
+  // ordinary form, and git joins the parts into one message with blank lines
+  // between them. Reading only the first would leave anything in the later
+  // parts unexamined — a trailer in a second -m would pass a denyTrailers rule
+  // that exists precisely to catch it.
+  const parts = [];
+  for (const m of command.matchAll(/(?:-m|--message)(?:=|\s+)(?:(['"])([\s\S]*?)\1|(\S+))/g)) {
+    parts.push(m[2] ?? m[3]);
+  }
+  if (parts.length > 0) return inline(parts.join("\n\n"), firstLine(parts[0]));
 
   // A commit with no -m opens an editor; the subject does not exist yet.
   return { kind: "unreadable", subject: null, message: null, why: "no inline message; git will open an editor" };
 }
 
 const firstLine = (s) => String(s).split(/\r?\n/)[0].trim();
-const inline = (text) => ({ kind: "inline", subject: firstLine(text), message: String(text) });
+const inline = (text, subject) => ({
+  kind: "inline",
+  subject: subject ?? firstLine(text),
+  message: String(text),
+});
 
 /** Split a Conventional Commits subject, or return null when it does not match. */
 export function parseConventional(subject) {

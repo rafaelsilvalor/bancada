@@ -43,7 +43,10 @@ export const structureCheck = {
 
   run(input, config) {
     const text = introducedText(input.tool_input);
-    const result = checkLayering(input.tool_input.file_path, text, config.gates.structure.layers);
+    // Write and Edit hand over an absolute path; layer globs are written
+    // relative to the project, so the two have to be reconciled here.
+    const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
+    const result = checkLayering(input.tool_input.file_path, text, config.gates.structure.layers, projectDir);
     return {
       decision: result.decision,
       check: structureCheck.name,

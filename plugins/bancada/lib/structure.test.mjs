@@ -199,3 +199,43 @@ test("python multi-import and aliasing are read", () => {
   assert.ok(found.includes("os"));
   assert.ok(found.includes("numpy"));
 });
+
+// --- the bug an end-to-end run found that every unit test had missed ---
+
+test("an absolute file path is reconciled against the project root before matching", () => {
+  // Write and Edit hand the gate an absolute path. Every test above passes a
+  // relative one, which proved the logic and hid the fact that the gate
+  // attributed nothing in a real session — a configured gate enforcing nothing.
+  const abs = "/home/me/proj/src/domain/order.ts";
+  const r = checkLayering(abs, 'import { jira } from "../adapter/jira.js";', LAYERS, "/home/me/proj");
+  assert.equal(r.decision, "deny");
+  assert.equal(r.violations[0].from, "domain");
+});
+
+test("the refusal names the path relative to the project, not the absolute one", () => {
+  const r = checkLayering(
+    "/home/me/proj/src/domain/order.ts",
+    'import { jira } from "../adapter/jira.js";',
+    LAYERS,
+    "/home/me/proj",
+  );
+  assert.match(r.reason, /^src\/domain\/order\.ts is in the "domain" layer/);
+  assert.doesNotMatch(r.reason, /home\/me\/proj/);
+});
+
+test("a windows absolute path is reconciled too, whatever the drive-letter case", () => {
+  const BS = String.fromCharCode(92);
+  const abs = ["D:", "Projects", "proj", "src", "domain", "order.ts"].join(BS);
+  const r = checkLayering(abs, 'import { x } from "../adapter/y.js";', LAYERS, "d:/Projects/proj");
+  assert.equal(r.decision, "deny", "the drive letter case must not decide whether a gate runs");
+});
+
+test("a path outside the project root is left alone rather than mangled", () => {
+  const r = checkLayering("/elsewhere/src/domain/a.ts", 'import x from "../adapter/y.js";', LAYERS, "/home/me/proj");
+  assert.equal(r.rule, "structure-outside");
+});
+
+test("with no project root given, a relative path still works", () => {
+  const r = checkLayering("src/domain/order.ts", 'import { jira } from "../adapter/jira.js";', LAYERS);
+  assert.equal(r.decision, "deny");
+});

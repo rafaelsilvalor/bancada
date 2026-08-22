@@ -20,6 +20,27 @@
 import { compileGlob, normalisePath } from "./glob.mjs";
 import { extractImports, isRelative, resolveRelative } from "./imports.mjs";
 
+/**
+ * Make a path project-relative, since layer globs are written that way.
+ *
+ * Write and Edit hand the gate an absolute `file_path`. A glob of
+ * `src/domain/**` never matches `/home/me/proj/src/domain/order.ts`, so the
+ * gate attributed nothing, found no violation, and reported success — a
+ * configured gate enforcing nothing, which is the exact failure this project
+ * exists to catch. The unit tests all passed relative paths and proved the
+ * logic while missing the integration; an end-to-end run caught it.
+ */
+export function toProjectRelative(filePath, projectDir) {
+  const p = normalisePath(filePath);
+  if (!projectDir) return p;
+  const root = normalisePath(projectDir).replace(/\/+$/, "");
+  if (root === "") return p;
+  // Compare case-insensitively: Windows hands back a drive letter whose case
+  // does not always match what the session was started with.
+  if (p.toLowerCase().startsWith(root.toLowerCase() + "/")) return p.slice(root.length + 1);
+  return p;
+}
+
 /** Compile the configured layers once per run. */
 export function compileLayers(layers) {
   return (layers ?? []).map((layer) => ({
@@ -73,13 +94,14 @@ export function targetLayer(fromFile, spec, compiled) {
  * the specifiers that could not be attributed, so `doctor` can report how much
  * of a file the gate is actually seeing rather than implying it saw all of it.
  */
-export function checkLayering(filePath, source, layers) {
+export function checkLayering(filePath, source, layers, projectDir) {
+  const rel = toProjectRelative(filePath, projectDir);
   const compiled = compileLayers(layers);
   if (compiled.length === 0) {
     return { decision: "allow", rule: "structure-unconfigured", reason: null, violations: [], unknown: 0 };
   }
 
-  const from = layerOf(filePath, compiled);
+  const from = layerOf(rel, compiled);
   if (!from) {
     return { decision: "allow", rule: "structure-outside", reason: null, violations: [], unknown: 0 };
   }
@@ -88,7 +110,7 @@ export function checkLayering(filePath, source, layers) {
   let unknown = 0;
 
   for (const spec of extractImports(source)) {
-    const to = targetLayer(filePath, spec, compiled);
+    const to = targetLayer(rel, spec, compiled);
     if (!to) {
       unknown++;
       continue;
@@ -104,7 +126,7 @@ export function checkLayering(filePath, source, layers) {
 
   const allowed = [...from.mayImport];
   const lines = [
-    `${normalisePath(filePath)} is in the "${from.name}" layer, which may import from ` +
+    `${rel} is in the "${from.name}" layer, which may import from ` +
       (allowed.length > 0 ? allowed.map((a) => `"${a}"`).join(", ") : "no other layer") +
       ".",
     "",

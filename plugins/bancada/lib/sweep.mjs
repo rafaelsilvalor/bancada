@@ -121,7 +121,7 @@ export function runSweep({
     } catch {
       continue; // a file that vanished between listing and reading is not a finding
     }
-    const r = checkLayering(rel, text, layers);
+    const r = checkLayering(rel, text, layers, projectDir);
     if (r.rule === "structure-outside" || r.rule === "structure-unconfigured") continue;
     checked++;
     unknown += r.unknown;
