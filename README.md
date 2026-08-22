@@ -75,9 +75,13 @@ These are constraints on the project, checked in CI where a machine can check th
 5. **No rule-identifier scheme.** Concepts are cited by name. A number means
    nothing in a repository that did not define it. *(enforced:
    `scripts/check-no-rule-ids.mjs`)*
-6. **A declared size budget for the core.** Growth is a decision someone makes out
-   loud, not a drift discovered later. *(enforced:
-   `scripts/check-size-budget.mjs`)*
+6. **Cost is compared against a recorded baseline, not an invented ceiling.**
+   Hot-path code and CLI-only code are counted separately, because they are paid
+   for at different times: one on every tool call, the other only when a human
+   runs a command. Growth past the tolerance fails until someone records a new
+   baseline, so every increase is a decision in the history. Latency is measured
+   and reported but never enforced — CI runners vary too much for a millisecond
+   threshold to mean anything. *(enforced: `scripts/check-cost.mjs`)*
 7. **English in the product; the consumer's language in what it emits.** Code,
    comments, docs and commits are English. Deny reasons and report output follow
    a `language` setting.

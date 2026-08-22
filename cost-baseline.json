@@ -1,0 +1,18 @@
+{
+  "hotPathLines": 760,
+  "cliLines": 518,
+  "hotPathFiles": [
+    "plugins/bancada/hooks/commit-guard.mjs",
+    "plugins/bancada/lib/commit-message.mjs",
+    "plugins/bancada/lib/config.mjs",
+    "plugins/bancada/lib/hook-io.mjs"
+  ],
+  "cliFiles": [
+    "plugins/bancada/bin/bancada.mjs",
+    "plugins/bancada/lib/doctor.mjs",
+    "plugins/bancada/lib/files.mjs",
+    "plugins/bancada/lib/glob.mjs",
+    "plugins/bancada/lib/messages.mjs"
+  ],
+  "tolerance": 1.25
+}

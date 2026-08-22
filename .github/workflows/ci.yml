@@ -62,10 +62,12 @@ jobs:
       - name: No inherited rule identifiers in prose
         run: node scripts/check-no-rule-ids.mjs
 
-      # A9: the core has a declared size budget. If it grows past the budget,
-      # that is a decision to make on purpose, not a drift to discover later.
-      - name: Core size budget
-        run: node scripts/check-size-budget.mjs
+      # Cost is compared against a committed baseline, not against an invented
+      # ceiling. Growth inside the tolerance is silent; growth past it fails
+      # until someone records a new baseline, which makes every increase a
+      # decision in the history rather than a drift nobody noticed.
+      - name: Cost against the recorded baseline
+        run: node scripts/check-cost.mjs
 
       # The JSON Schema an editor autocompletes against and the SPEC the gates
       # enforce must be the same thing. Two hand-written copies drift, and the
