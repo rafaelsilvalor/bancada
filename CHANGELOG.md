@@ -68,13 +68,25 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
   headings translate; the validator's own strings do not, because it returns
   formatted text rather than keys. Fixing it properly means the validator
   returning `{key, params}` — a deliberate change, not a patch.
-- Whether a plugin hook fires *inside a Claude Code session* has not been
-  verified end to end. The gate itself is proven by piping real payloads into
-  it, but the wiring from a session to the hook is not. The nested
-  `claude -p` used for it could not authenticate in the authoring session. The
-  manual check is one command; see README.
 - Whether a plugin can ship `.claude/rules/` is still established by omission
   from the official component table, not by experiment.
+
+**Verified end to end in a real session** (Claude Code v2.1.240, plugin loaded
+with `--plugin-dir`)
+
+- `/hooks` lists the plugin's `PreToolUse` entry against `Bash|PowerShell`, so
+  `${CLAUDE_PLUGIN_ROOT}` resolves and the exec form (`command` plus `args`)
+  spawns. Both had been assumptions.
+- `git commit -m "adding a thing"` is refused before git runs, with the reason
+  reaching the model. It reports the Conventional Commits check rather than the
+  imperative one, which is the documented order: shape first, because the other
+  checks depend on it.
+- `git commit -F mensagem.txt` produces a confirmation prompt carrying bancada's
+  explanation, rather than passing. This one mattered: the `ask` path exits 0
+  with JSON on stdout, and the `/hooks` panel describes exit 0 as
+  "stdout/stderr not shown", which left it unclear whether the structured
+  verdict would be read at all. It is. A message the gate cannot read escalates
+  to the owner instead of being approved in silence.
 
 ### bancada-context
 

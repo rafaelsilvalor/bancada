@@ -10,9 +10,10 @@ That is the whole design. An instruction in `CLAUDE.md` is a request. A hook tha
 denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
-> **Status: early. v0.1.0, Phase 1 of 10.**
-> The skeleton validates and the manifests are real. The gates are not written
-> yet. Nothing here is installable from a marketplace. See
+> **Status: early. v0.1.0, Phase 3 of 10.**
+> One gate exists — the commit gate — and it has been verified refusing a real
+> commit inside a real session. The other gates are not written. Nothing here is
+> installable from a marketplace yet. See
 > [Project status](#project-status) for exactly what exists.
 
 ## Why it exists
@@ -88,14 +89,14 @@ These are constraints on the project, checked in CI where a machine can check th
 
 ## Project status
 
-Ten phases. This repository is at the end of the first.
+Ten phases. This repository is at the end of the third.
 
 | Phase | What it delivers | State |
 | --- | --- | --- |
-| 1 | Skeleton, manifests, CI, plumbing probe | **done** |
-| 2 | Core: hook contract, config loader, `doctor` | next |
-| 3 | First gate: commit messages | |
-| 3.5 | Dogfooding — bancada runs bancada's own gates | |
+| 1 | Skeleton, manifests, CI | **done** |
+| 2 | Core: hook contract, config loader, `doctor` | **done** |
+| 3 | First gate: commit messages | **done** |
+| 3.5 | Dogfooding — bancada runs bancada's own gates | next |
 | 4 | Telemetry and `yield` | |
 | 5 | The structure gate and `/bancada:structure` | |
 | 6 | `bancada-context`: probe, skill factory, budget meter | |
@@ -112,11 +113,17 @@ Nothing is published yet, so load it from disk:
 claude --plugin-dir ./plugins/bancada
 ```
 
-Then run any shell command. The Phase 1 probe (`plugins/bancada/hooks/ping.mjs`)
-prints one line confirming that a plugin hook fired, that
-`${CLAUDE_PLUGIN_ROOT}` resolved, and which effort level the turn is running at.
-It never blocks anything. It exists to prove the plumbing and will be deleted
-once a real gate covers the same path.
+Then ask Claude to run a commit with a message the gate should refuse. The hook
+fires on Claude's tool calls, not on what you type in your own shell, so the
+request has to go through Claude:
+
+> Run this in the shell exactly as written, without correcting the message:
+> `git commit -m "adding a thing"`
+
+The commit is refused before git runs, and the reason goes back to the model.
+Asking for `git commit -F somefile.txt` instead produces a confirmation prompt:
+bancada cannot read a message that lives in a file, and a gate that cannot see
+what it is judging escalates rather than approving.
 
 Validate the manifests:
 
@@ -132,8 +139,8 @@ plugins/bancada/                  the engine
 plugins/bancada-context/          context discipline
 plugins/bancada-flow/             opinionated process, disabled by default
 schema/                           JSON Schema for bancada.config.json
-scripts/                          CI hygiene checks
-docs/                             adoption, config, gates
+scripts/                          CI hygiene and cost checks
+docs/decisions/                   architecture decisions, with the measurements behind them
 examples/                         starting configs per stack
 ```
 
