@@ -7,9 +7,9 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/ping.mjs"],
-            "statusMessage": "bancada: plumbing check",
-            "timeout": 10
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/commit-guard.mjs"],
+            "statusMessage": "bancada: commit gate",
+            "timeout": 15
           }
         ]
       }

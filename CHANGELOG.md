@@ -44,13 +44,33 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
   directories no source glob reaches. An `include` matching nothing is called
   out; an `exclude` matching nothing is not, because that is the healthy case.
 
+**Phase 3 - the commit gate**
+
+- `lib/commit-message.mjs` and `hooks/commit-guard.mjs`: a `PreToolUse` gate
+  that reads a `git commit` off the command line and judges it before git runs,
+  so a refusal lands in the turn that can still fix it.
+- No vocabulary of approved verbs. The imperative rule is morphological -
+  gerunds and past tense - with an exception set so `bring`, `embed` and
+  `spread` are not refused for ending in -ing or -ed. Projects that want a word
+  list get `denyVerbs`.
+- `denyTrailers` matches regular expressions against whole lines of the
+  message, so a project can keep attribution it never asked for out of its
+  history. Empty by default.
+- A message the gate cannot see - `-F path`, `--amend --no-edit`, a bare
+  `git commit` - returns `ask`, never a verdict. `-F -` with a heredoc is
+  readable and is extracted before the unreadable check runs.
+- The Phase 1 plumbing probe was deleted, as its own comment required, now that
+  a real gate covers the same event.
+
 **Known gaps in this release**
 
 - Validation messages are English even when `language` is `pt-BR`. Section
   headings translate; the validator's own strings do not, because it returns
   formatted text rather than keys. Fixing it properly means the validator
   returning `{key, params}` — a deliberate change, not a patch.
-- Whether a plugin hook fires has not been verified end to end. The nested
+- Whether a plugin hook fires *inside a Claude Code session* has not been
+  verified end to end. The gate itself is proven by piping real payloads into
+  it, but the wiring from a session to the hook is not. The nested
   `claude -p` used for it could not authenticate in the authoring session. The
   manual check is one command; see README.
 - Whether a plugin can ship `.claude/rules/` is still established by omission
