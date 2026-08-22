@@ -1,0 +1,241 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "bancada configuration",
+  "description": "Per-project policy for the bancada gates. Every setting is optional; anything absent uses the default shown. Generated from the SPEC in plugins/bancada/lib/config.mjs — edit that, then run scripts/gen-schema.mjs.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "language": {
+      "enum": [
+        "en",
+        "pt-BR"
+      ],
+      "default": "en"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "include": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "exclude": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/node_modules/**",
+            "**/dist/**"
+          ]
+        }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "commit": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "conventional": {
+              "type": "boolean",
+              "default": true
+            },
+            "maxSubject": {
+              "type": "number",
+              "default": 72
+            },
+            "requireImperative": {
+              "type": "boolean",
+              "default": true
+            },
+            "denyVerbs": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          }
+        },
+        "green": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "watch": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            },
+            "timeoutMs": {
+              "type": "number",
+              "default": 300000
+            }
+          }
+        },
+        "secrets": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "builtin": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": [
+                "generic"
+              ]
+            },
+            "custom": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
+            }
+          }
+        },
+        "size": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "maxFileLines": {
+              "type": "number",
+              "default": 400
+            },
+            "testCeiling": {
+              "type": "number",
+              "default": 800
+            }
+          }
+        },
+        "structure": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "layers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "name",
+                  "match",
+                  "mayImport"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Layer name, referenced by other layers' mayImport."
+                  },
+                  "match": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "Glob selecting the files in this layer."
+                  },
+                  "mayImport": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Names of layers this one is allowed to import from. An empty list means it imports from no layer."
+                  }
+                }
+              },
+              "default": []
+            },
+            "adapterCommand": {
+              "type": "string",
+              "default": ""
+            },
+            "adrDir": {
+              "type": "string",
+              "default": "docs/decisions/"
+            }
+          }
+        }
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "testAgent": {
+          "type": "string",
+          "default": "test"
+        },
+        "codeAgent": {
+          "type": "string",
+          "default": "code"
+        },
+        "testGlobs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "**/*.test.*",
+            "**/*.spec.*"
+          ]
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "dir": {
+          "type": "string",
+          "default": ".bancada/telemetry"
+        }
+      }
+    },
+    "$schema": {
+      "type": "string"
+    }
+  }
+}

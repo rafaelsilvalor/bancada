@@ -1,0 +1,9 @@
+{
+  "name": "bancada",
+  "displayName": "Bancada",
+  "version": "0.1.0",
+  "description": "Gates for Claude Code that block until the evidence exists, and record that they blocked. Config-driven, zero dependencies.",
+  "author": { "name": "Rafael Silva" },
+  "license": "MIT",
+  "keywords": ["gates", "hooks", "architecture", "fitness-functions", "telemetry"]
+}

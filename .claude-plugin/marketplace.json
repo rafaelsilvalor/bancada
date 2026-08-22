@@ -1,0 +1,31 @@
+{
+  "name": "bancada",
+  "owner": {
+    "name": "Rafael Silva"
+  },
+  "description": "Gates for Claude Code that block until the evidence exists, and record that they blocked.",
+  "plugins": [
+    {
+      "name": "bancada",
+      "source": "./plugins/bancada",
+      "description": "The gate engine: config, hook contract, telemetry, structure fitness functions, doctor and yield reporting.",
+      "category": "workflow",
+      "tags": ["gates", "hooks", "architecture", "telemetry", "quality"]
+    },
+    {
+      "name": "bancada-context",
+      "source": "./plugins/bancada-context",
+      "description": "Context discipline: a probe that researches without polluting the main window, a skill factory, and a skill-listing budget meter.",
+      "category": "workflow",
+      "tags": ["context", "subagents", "skills", "tokens"]
+    },
+    {
+      "name": "bancada-flow",
+      "source": "./plugins/bancada-flow",
+      "description": "Opinionated process: the three Pauses, a brief format with a validator, and the planner/executor/test/code roles. Opt-in.",
+      "category": "workflow",
+      "tags": ["process", "review", "pauses", "briefs"],
+      "defaultEnabled": false
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "$schema": "./schema/bancada.config.schema.json",
+  "language": "en",
+  "source": {
+    "include": ["plugins/**/*.mjs", "scripts/**/*.mjs"]
+  },
+  "gates": {
+    "commit": {
+      "enabled": true,
+      "conventional": true,
+      "maxSubject": 72
+    },
+    "secrets": {
+      "enabled": true
+    },
+    "size": {
+      "enabled": true,
+      "maxFileLines": 300,
+      "testCeiling": 600
+    }
+  },
+  "telemetry": {
+    "enabled": true,
+    "dir": ".bancada/telemetry"
+  }
+}

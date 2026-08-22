@@ -1,0 +1,10 @@
+{
+  "name": "bancada-context",
+  "displayName": "Bancada Context",
+  "version": "0.1.0",
+  "description": "Context discipline for Claude Code: a probe that researches in an isolated window, a skill factory, and a skill-listing budget meter.",
+  "author": { "name": "Rafael Silva" },
+  "license": "MIT",
+  "keywords": ["context", "subagents", "skills", "tokens"],
+  "dependencies": ["bancada"]
+}

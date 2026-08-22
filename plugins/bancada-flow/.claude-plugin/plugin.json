@@ -1,0 +1,11 @@
+{
+  "name": "bancada-flow",
+  "displayName": "Bancada Flow",
+  "version": "0.1.0",
+  "description": "Opinionated process on top of bancada: the three Pauses, a brief format with a validator, and the planner/executor/test/code roles.",
+  "author": { "name": "Rafael Silva" },
+  "license": "MIT",
+  "keywords": ["process", "review", "briefs"],
+  "dependencies": ["bancada"],
+  "defaultEnabled": false
+}

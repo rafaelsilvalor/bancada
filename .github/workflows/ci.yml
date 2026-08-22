@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate marketplace manifest
+        run: claude plugin validate . --strict
+
+      - name: Validate plugin manifests
+        run: |
+          for p in plugins/*/; do
+            echo "--- $p"
+            claude plugin validate "$p" --strict
+          done
+
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # bancada has zero npm dependencies on purpose: a harness that runs in
+      # everyone's PreToolUse should not carry a dependency tree. There is
+      # nothing to install, so there is no install step.
+      - name: Run unit tests
+        run: node --test "plugins/bancada/lib/**/*.test.mjs"
+
+  hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A5: bancada must not introduce a rule-ID scheme that a consumer would
+      # inherit. A citation like "R14" means nothing outside the repo that
+      # defined it, so the product cites concepts by name instead.
+      - name: No inherited rule identifiers in prose
+        run: node scripts/check-no-rule-ids.mjs
+
+      # A9: the core has a declared size budget. If it grows past the budget,
+      # that is a decision to make on purpose, not a drift to discover later.
+      - name: Core size budget
+        run: node scripts/check-size-budget.mjs
+
+      # The JSON Schema an editor autocompletes against and the SPEC the gates
+      # enforce must be the same thing. Two hand-written copies drift, and the
+      # drift is invisible until an editor says a setting is fine and the
+      # validator says it is not.
+      - name: Config schema matches the SPEC
+        run: node scripts/gen-schema.mjs --check
