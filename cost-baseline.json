@@ -1,22 +1,26 @@
 {
-  "hotPathLines": 1044,
-  "cliLines": 799,
+  "hotPathLines": 1450,
+  "cliLines": 797,
   "hotPathFiles": [
     "plugins/bancada/hooks/pre-tool-use.mjs",
     "plugins/bancada/lib/checks/commit.mjs",
     "plugins/bancada/lib/checks/index.mjs",
+    "plugins/bancada/lib/checks/structure.mjs",
     "plugins/bancada/lib/commit-message.mjs",
     "plugins/bancada/lib/config.mjs",
     "plugins/bancada/lib/dispatch.mjs",
+    "plugins/bancada/lib/glob.mjs",
     "plugins/bancada/lib/hook-io.mjs",
+    "plugins/bancada/lib/imports.mjs",
+    "plugins/bancada/lib/structure.mjs",
     "plugins/bancada/lib/telemetry.mjs"
   ],
   "cliFiles": [
     "plugins/bancada/bin/bancada.mjs",
     "plugins/bancada/lib/doctor.mjs",
     "plugins/bancada/lib/files.mjs",
-    "plugins/bancada/lib/glob.mjs",
     "plugins/bancada/lib/messages.mjs",
+    "plugins/bancada/lib/sweep.mjs",
     "plugins/bancada/lib/yield-cli.mjs",
     "plugins/bancada/lib/yield.mjs"
   ],

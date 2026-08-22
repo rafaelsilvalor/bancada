@@ -9,6 +9,7 @@
 
 import { runDoctor } from "../lib/doctor.mjs";
 import { runYield } from "../lib/yield-cli.mjs";
+import { runSweep } from "../lib/sweep.mjs";
 
 const VERSION = "0.1.0";
 
@@ -17,6 +18,7 @@ const USAGE = `bancada ${VERSION}
 Usage:
   bancada doctor [--dir <path>] [--json]   report what is configured and what guards nothing
   bancada yield  [--dir <path>] [--json]   report what the gates actually did
+  bancada check  [--dir <path>] [--json]   sweep the whole project against the layering
   bancada version                          print the version
   bancada help                             print this
 
@@ -53,6 +55,16 @@ function main(argv) {
 
     case "yield": {
       const report = runYield({ projectDir: args.dir });
+      if (args.json) {
+        process.stdout.write(JSON.stringify(report.summary, null, 2) + "\n");
+      } else {
+        process.stdout.write(report.lines.join("\n") + "\n");
+      }
+      return report.exitCode;
+    }
+
+    case "check": {
+      const report = runSweep({ projectDir: args.dir });
       if (args.json) {
         process.stdout.write(JSON.stringify(report.summary, null, 2) + "\n");
       } else {

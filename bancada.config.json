@@ -25,6 +25,30 @@
       "enabled": true,
       "maxFileLines": 300,
       "testCeiling": 600
+    },
+    "structure": {
+      "enabled": true,
+      "layers": [
+        {
+          "name": "lib",
+          "match": "plugins/bancada/lib/**",
+          "mayImport": []
+        },
+        {
+          "name": "hooks",
+          "match": "plugins/bancada/hooks/**",
+          "mayImport": [
+            "lib"
+          ]
+        },
+        {
+          "name": "cli",
+          "match": "plugins/bancada/bin/**",
+          "mayImport": [
+            "lib"
+          ]
+        }
+      ]
     }
   },
   "telemetry": {

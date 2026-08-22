@@ -101,6 +101,42 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
 - An empty stream says so explicitly, and says that it cannot distinguish
   "the gates found nothing" from "the gates are not running".
 
+**Phase 5 - the structure gate** (partial; see what is not done, below)
+
+- `lib/imports.mjs` and `lib/structure.mjs`: layering enforced when a file is
+  written, not when it is committed and not in CI. A violation is created the
+  moment a file gains an import, and refusing it there puts the reason in front
+  of the model in the turn that produced it.
+- Imports are found by pattern, not by parsing. An import form that is not
+  recognised is not checked, rather than checked wrongly, and the shapes that
+  are invisible are named in the module: dynamic specifiers built from
+  variables, re-exports through a barrel, and Go's grouped import block.
+- The gate will not guess. An import it cannot attribute to a layer is an
+  unknown, not a violation, and the count of unknowns is reported so coverage
+  is visible rather than implied. A false violation is what gets a layering
+  gate switched off, after which it guards nothing.
+- `bancada check`: a whole-project sweep, exiting non-zero on a violation. The
+  gate covers code being written now and says nothing about what was already
+  there, which is the number a project needs before deciding whether its
+  layering is true or aspirational.
+- `bancada doctor` now counts files per layer glob, so a layer that matches
+  nothing is visible as a dead rule.
+- bancada declares its own layering and passes it: `lib/` imports nothing from
+  `hooks/` or `bin/`. That is the seam the portability claim rests on — if the
+  judgement ever reaches into a host entry point, a second host stops being
+  cheap — and it is now enforced rather than asserted.
+
+**What Phase 5 does not include**
+
+- `/bancada:structure`, the skill that interviews a project into a layering and
+  writes the config and an ADR from one act. The gate enforces a layering; it
+  does not yet help anyone arrive at one.
+- The external-tool adapter for `dependency-cruiser`, `import-linter` and
+  `depguard`. Its home is `bancada check` rather than the write gate: running a
+  whole-project analyser on every edit would add seconds to each one. The
+  `adapterCommand` setting is accepted by the config and not yet used by
+  anything, which is a gap rather than a feature.
+
 **Known gaps in this release**
 
 - Validation messages are English even when `language` is `pt-BR`. Section

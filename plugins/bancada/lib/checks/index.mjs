@@ -11,5 +11,6 @@
  */
 
 import { commitCheck } from "./commit.mjs";
+import { structureCheck } from "./structure.mjs";
 
-export const CHECKS = [commitCheck];
+export const CHECKS = [commitCheck, structureCheck];

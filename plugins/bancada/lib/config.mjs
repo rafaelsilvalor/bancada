@@ -126,6 +126,11 @@ function typeError(kind, value, path, values) {
         if (!Array.isArray(layer.mayImport) || !layer.mayImport.every((n) => typeof n === "string")) {
           return `${path}[${i}].mayImport: expected an array of layer names`;
         }
+        if (layer.aliases !== undefined) {
+          if (!Array.isArray(layer.aliases) || !layer.aliases.every((a) => typeof a === "string")) {
+            return `${path}[${i}].aliases: expected an array of specifier prefixes`;
+          }
+        }
       }
       return null;
     }

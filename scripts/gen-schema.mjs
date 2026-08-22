@@ -28,6 +28,12 @@ const LAYER_SCHEMA = {
       items: { type: "string" },
       description: "Names of layers this one is allowed to import from. An empty list means it imports from no layer.",
     },
+    aliases: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Specifier prefixes that also mean this layer, for codebases that import through a path alias such as @domain/ rather than a relative path.",
+    },
   },
 };
 
