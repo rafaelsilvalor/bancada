@@ -10,7 +10,7 @@ That is the whole design. An instruction in `CLAUDE.md` is a request. A hook tha
 denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
-> **Status: early. v0.1.0, Phase 5 of 10.**
+> **Status: early. v0.1.0, Phase 6 of 10.**
 > Two gates exist — commit messages and layering — and the commit gate has
 > been verified refusing a real commit inside a real session. The rest are not
 > written. Nothing here is installable from a marketplace yet. See
@@ -89,7 +89,7 @@ These are constraints on the project, checked in CI where a machine can check th
 
 ## Project status
 
-Ten phases. This repository is at the end of the fifth.
+Ten phases. This repository is at the end of the sixth.
 
 | Phase | What it delivers | State |
 | --- | --- | --- |
@@ -100,8 +100,8 @@ Ten phases. This repository is at the end of the fifth.
 | 4 | Telemetry and `yield` | **done** |
 | 5 | The structure gate | **done** |
 | 5b | `/bancada:structure` and the external-tool adapter | **done** |
-| 6 | `bancada-context`: probe, skill factory, budget meter | next |
-| 7 | Remaining gates: green boundary, secrets, size, test/code pair | |
+| 6 | `bancada-context`: probe, skill factory, budget meter | **done** |
+| 7 | Remaining gates: green boundary, secrets, size, test/code pair | next |
 | 8 | `bancada-flow` | |
 | 9 | Docs, examples, public v0.1.0 release | |
 | 10 | Full CI | |

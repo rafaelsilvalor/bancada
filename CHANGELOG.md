@@ -185,7 +185,32 @@ with `--plugin-dir`)
 
 ### bancada-context
 
-- Manifest only.
+**Phase 6 - context discipline**
+
+- `/bancada-context:probe`: research in an isolated window, returning only the
+  conclusion. It is a skill with `context: fork` and `agent: Explore`, not a
+  custom subagent, and that distinction is the whole point — a non-fork subagent
+  loads the full CLAUDE.md hierarchy and a git-status snapshot on every call,
+  which is the cost a probe exists to avoid. Explore skips both by design.
+- `/bancada-context:skill-new`: authoring a skill so it actually triggers. Most
+  skills fail in the description, not the body, and adding one is never free.
+- `bancada doctor --skills`: what the listing costs against its budget of about
+  1% of the model's context window. It reports the model it assumed, because a
+  listing calibrated on a 1M-token window can overflow on a 200K one.
+- A skill with `disable-model-invocation` leaves the listing entirely and costs
+  nothing. The meter names that lever, because it is the strongest one available
+  and it is free for every skill only a person should invoke.
+- An unknown model falls back to the *smallest* known window. Guessing large
+  would under-report the risk, and this report exists to warn.
+
+**Not measured**
+
+- The probe's actual token saving. The A/B — the same question answered in the
+  conversation and through the probe, with both token counts — still has not
+  been run. It needs a real session, and the nested CLI has no stored
+  credentials on this machine. Everything claimed about the probe's economics
+  remains documented mechanism, not measurement.
+
 
 ### bancada-flow
 

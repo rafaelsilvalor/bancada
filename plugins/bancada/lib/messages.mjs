@@ -34,6 +34,20 @@ const CATALOG = {
     "doctor.session": ({ effort }) => `session effort: ${effort ?? "unknown"}`,
     "doctor.ok": () => "No problems found.",
     "doctor.nogates": () => "No gates are enabled. bancada is installed but guarding nothing.",
+    "skills.title": () => "Skill listing budget",
+    "skills.none": () => "No skills found in this project.",
+    "skills.usage": ({ used, budget, pct, model }) =>
+      `${used} of about ${budget} characters (${pct}%) against a ${model}-sized window.`,
+    "skills.assumption": () =>
+      "The budget is ~1% of the model's context window, so it shrinks on a smaller model. This assumes the model named above.",
+    "skills.over": () =>
+      "Over budget. Claude Code drops descriptions starting with the skills you invoke least, so the newest skill stops triggering first and nothing announces it.",
+    "skills.entry": ({ name, chars, note }) => `${String(chars).padStart(6)}  ${name}${note}`,
+    "skills.hidden": ({ n }) => `${n} skill(s) are model-invisible and cost nothing in the listing.`,
+    "skills.truncated": ({ names }) => `Already truncated at the per-entry cap: ${names}`,
+    "skills.undescribed": ({ names }) => `No description, so the model cannot match them: ${names}`,
+    "skills.lever": () =>
+      "The strongest lever is disable-model-invocation on skills only you invoke: those leave the listing entirely.",
   },
 
   "pt-BR": {
@@ -58,6 +72,20 @@ const CATALOG = {
     "doctor.session": ({ effort }) => `effort da sessão: ${effort ?? "desconhecido"}`,
     "doctor.ok": () => "Nenhum problema encontrado.",
     "doctor.nogates": () => "Nenhum gate habilitado. A bancada está instalada e não guarda nada.",
+    "skills.title": () => "Orçamento da listagem de skills",
+    "skills.none": () => "Nenhuma skill encontrada neste projeto.",
+    "skills.usage": ({ used, budget, pct, model }) =>
+      `${used} de cerca de ${budget} caracteres (${pct}%) para uma janela do tamanho de ${model}.`,
+    "skills.assumption": () =>
+      "O orçamento é ~1% da janela do modelo, então encolhe em modelo menor. Isto assume o modelo nomeado acima.",
+    "skills.over": () =>
+      "Acima do orçamento. O Claude Code descarta descrições começando pelas skills menos invocadas, então a mais nova para de disparar primeiro e nada avisa.",
+    "skills.entry": ({ name, chars, note }) => `${String(chars).padStart(6)}  ${name}${note}`,
+    "skills.hidden": ({ n }) => `${n} skill(s) são invisíveis ao modelo e não custam nada na listagem.`,
+    "skills.truncated": ({ names }) => `Já truncadas no teto por entrada: ${names}`,
+    "skills.undescribed": ({ names }) => `Sem descrição, então o modelo não tem como casar: ${names}`,
+    "skills.lever": () =>
+      "A alavanca mais forte é disable-model-invocation nas skills que só você invoca: essas saem da listagem inteira.",
   },
 };
 

@@ -14,6 +14,7 @@ import { compileGlobs, normalisePath } from "./glob.mjs";
 import { globSettings, loadConfig as realLoadConfig } from "./config.mjs";
 import { listProjectFiles as realListFiles, uncoveredDirs } from "./files.mjs";
 import { t } from "./messages.mjs";
+import { reportSkills as realReportSkills } from "./skills-report.mjs";
 
 /** The gates in report order, with the path to their `enabled` flag. */
 const GATES = [
@@ -37,6 +38,8 @@ export function runDoctor({
   env = process.env,
   loadConfig = realLoadConfig,
   listFiles = realListFiles,
+  reportSkills = realReportSkills,
+  sections = [],
 } = {}) {
   const { config, source, file, errors, warnings } = loadConfig(projectDir);
   const lang = config.language;
@@ -106,6 +109,14 @@ export function runDoctor({
     }
   }
 
+  // The skill-listing budget is its own question and is not everyone's problem,
+  // so it is opt-in rather than always printed.
+  let skills = null;
+  if (sections.includes("skills")) {
+    skills = reportSkills({ projectDir, lang });
+    lines.push(...skills.lines, "");
+  }
+
   if (errors.length === 0 && warnings.length === 0 && emptySettings.length === 0) {
     lines.push(say("doctor.ok"));
   }
@@ -123,6 +134,7 @@ export function runDoctor({
       blindSpots: blindSpots.map((b) => b.dir),
       fileCount: normalised.length,
       fileSource,
+      skills: skills?.summary ?? null,
     },
   };
 }

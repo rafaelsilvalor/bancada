@@ -16,7 +16,8 @@ const VERSION = "0.1.0";
 const USAGE = `bancada ${VERSION}
 
 Usage:
-  bancada doctor [--dir <path>] [--json]   report what is configured and what guards nothing
+  bancada doctor [--dir <path>] [--json] [--skills]
+                                           report what is configured and what guards nothing
   bancada yield  [--dir <path>] [--json]   report what the gates actually did
   bancada check  [--dir <path>] [--json]   sweep the whole project against the layering
   bancada version                          print the version
@@ -28,11 +29,12 @@ Not implemented yet (see the phase table in README.md):
 `;
 
 function parseArgs(argv) {
-  const args = { command: argv[0] ?? "help", dir: process.cwd(), json: false, unknown: [] };
+  const args = { command: argv[0] ?? "help", dir: process.cwd(), json: false, sections: [], unknown: [] };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--dir" || a === "-C") args.dir = argv[++i] ?? args.dir;
     else if (a === "--json") args.json = true;
+    else if (a === "--skills") args.sections.push("skills");
     else if (a === "--help" || a === "-h") args.command = "help";
     else args.unknown.push(a);
   }
@@ -44,7 +46,7 @@ function main(argv) {
 
   switch (args.command) {
     case "doctor": {
-      const report = runDoctor({ projectDir: args.dir });
+      const report = runDoctor({ projectDir: args.dir, sections: args.sections });
       if (args.json) {
         process.stdout.write(JSON.stringify(report.summary, null, 2) + "\n");
       } else {

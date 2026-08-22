@@ -1,6 +1,6 @@
 {
   "hotPathLines": 1450,
-  "cliLines": 881,
+  "cliLines": 1127,
   "hotPathFiles": [
     "plugins/bancada/hooks/pre-tool-use.mjs",
     "plugins/bancada/lib/checks/commit.mjs",
@@ -20,6 +20,8 @@
     "plugins/bancada/lib/doctor.mjs",
     "plugins/bancada/lib/files.mjs",
     "plugins/bancada/lib/messages.mjs",
+    "plugins/bancada/lib/skills-report.mjs",
+    "plugins/bancada/lib/skills.mjs",
     "plugins/bancada/lib/sweep.mjs",
     "plugins/bancada/lib/yield-cli.mjs",
     "plugins/bancada/lib/yield.mjs"
