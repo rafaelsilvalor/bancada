@@ -126,16 +126,31 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
   judgement ever reaches into a host entry point, a second host stops being
   cheap — and it is now enforced rather than asserted.
 
-**What Phase 5 does not include**
+**Phase 5b - arriving at a layering, and reusing the project's own checker**
 
-- `/bancada:structure`, the skill that interviews a project into a layering and
-  writes the config and an ADR from one act. The gate enforces a layering; it
-  does not yet help anyone arrive at one.
-- The external-tool adapter for `dependency-cruiser`, `import-linter` and
-  `depguard`. Its home is `bancada check` rather than the write gate: running a
-  whole-project analyser on every edit would add seconds to each one. The
-  `adapterCommand` setting is accepted by the config and not yet used by
-  anything, which is a gap rather than a feature.
+- `/bancada:structure`: an interview that works out a layering from the code
+  that exists and writes both artifacts together — the rules in
+  `bancada.config.json` and the reason in an architecture decision record.
+  Neither is worth much alone: rules with no recorded reason get deleted by the
+  next person who finds them inconvenient, and a reason with no rules is a
+  comment the code drifts away from.
+- The skill counts the violations a proposed rule would create before anything
+  is written, and offers the choice out loud rather than quietly proposing the
+  weaker rule. A layering half the files violate on day one gets switched off by
+  the end of the week.
+- It is `disable-model-invocation: true`, because it writes files and because a
+  skill only the owner invokes costs nothing at all in the listing budget.
+- `gates.structure.adapterCommand` is now used. bancada does not reimplement
+  `dependency-cruiser`, `import-linter` or `depguard`: a project already running
+  one has encoded its rules there, and two copies of a rule disagree eventually.
+  The adapter runs in `bancada check` rather than the write gate, because a
+  whole-project analyser takes seconds and seconds per edit is a tax nobody
+  keeps paying.
+- A checker that is not installed is reported as a setup problem and does not
+  fail the sweep. The tests caught this: with `shell: true` a missing binary
+  does not surface as a spawn error — the shell starts fine and exits 127 — so
+  the first version reported an uninstalled tool as a layering violation, which
+  is exactly the conflation the branch exists to prevent.
 
 **Known gaps in this release**
 

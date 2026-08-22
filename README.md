@@ -99,8 +99,8 @@ Ten phases. This repository is at the end of the fifth.
 | 3.5 | One dispatcher per event | **done** |
 | 4 | Telemetry and `yield` | **done** |
 | 5 | The structure gate | **done** |
-| 5b | `/bancada:structure` and the external-tool adapter | next |
-| 6 | `bancada-context`: probe, skill factory, budget meter | |
+| 5b | `/bancada:structure` and the external-tool adapter | **done** |
+| 6 | `bancada-context`: probe, skill factory, budget meter | next |
 | 7 | Remaining gates: green boundary, secrets, size, test/code pair | |
 | 8 | `bancada-flow` | |
 | 9 | Docs, examples, public v0.1.0 release | |

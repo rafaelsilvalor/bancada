@@ -1,6 +1,6 @@
 {
   "hotPathLines": 1450,
-  "cliLines": 797,
+  "cliLines": 881,
   "hotPathFiles": [
     "plugins/bancada/hooks/pre-tool-use.mjs",
     "plugins/bancada/lib/checks/commit.mjs",
