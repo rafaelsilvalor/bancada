@@ -44,7 +44,7 @@ const TOLERANCE = 1.25;
 
 /** Entry points, by the cost they belong to. */
 const ENTRY = {
-  hot: ["plugins/bancada/hooks/commit-guard.mjs"],
+  hot: ["plugins/bancada/hooks/pre-tool-use.mjs"],
   cli: ["plugins/bancada/bin/bancada.mjs"],
 };
 

@@ -1,10 +1,13 @@
 {
-  "hotPathLines": 760,
+  "hotPathLines": 882,
   "cliLines": 518,
   "hotPathFiles": [
-    "plugins/bancada/hooks/commit-guard.mjs",
+    "plugins/bancada/hooks/pre-tool-use.mjs",
+    "plugins/bancada/lib/checks/commit.mjs",
+    "plugins/bancada/lib/checks/index.mjs",
     "plugins/bancada/lib/commit-message.mjs",
     "plugins/bancada/lib/config.mjs",
+    "plugins/bancada/lib/dispatch.mjs",
     "plugins/bancada/lib/hook-io.mjs"
   ],
   "cliFiles": [

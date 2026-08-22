@@ -7,8 +7,8 @@
           {
             "type": "command",
             "command": "node",
-            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/commit-guard.mjs"],
-            "statusMessage": "bancada: commit gate",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use.mjs"],
+            "statusMessage": "bancada",
             "timeout": 15
           }
         ]

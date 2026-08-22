@@ -18,8 +18,8 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
   plugin-supplied hook fires at all and never blocks. To be deleted once a real
   gate covers the same path.
 - CI: manifest validation, tests on Linux/macOS/Windows, and three hygiene
-  checks — no inherited rule identifiers in prose, a size budget for the core,
-  and a generated-schema freshness check.
+  checks — no inherited rule identifiers in prose, cost against a recorded
+  baseline, and a generated-schema freshness check.
 
 **Phase 2 — the core**
 
@@ -46,7 +46,7 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
 
 **Phase 3 - the commit gate**
 
-- `lib/commit-message.mjs` and `hooks/commit-guard.mjs`: a `PreToolUse` gate
+- `lib/commit-message.mjs`: a `PreToolUse` gate
   that reads a `git commit` off the command line and judges it before git runs,
   so a refusal lands in the turn that can still fix it.
 - No vocabulary of approved verbs. The imperative rule is morphological -
@@ -61,6 +61,23 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
   readable and is extracted before the unreadable check runs.
 - The Phase 1 plumbing probe was deleted, as its own comment required, now that
   a real gate covers the same event.
+
+**Phase 3.5 - one dispatcher per event**
+
+- `lib/dispatch.mjs` and `hooks/pre-tool-use.mjs`: a single entry point per
+  event. Config is read once, applicable checks run in registry order, and
+  their verdicts are folded here rather than by the host: deny beats ask beats
+  allow. When several checks land on the same decision every reason is
+  reported, because handing back one problem at a time turns one refusal into a
+  sequence of them.
+- A check that throws is recorded as an abstention and cannot suppress another
+  check's real refusal. One broken gate must not disable the rest, and a crash
+  must never read as a deny.
+- `lib/checks/commit.mjs` is now a thin seam: when the check applies, and where
+  its settings live. All the judgement stays in `commit-message.mjs`, which
+  knows nothing about hooks or events — which is what makes a second host cheap.
+- `hooks/commit-guard.mjs` is gone; the same six payloads produce the same six
+  verdicts through the dispatcher.
 
 **Known gaps in this release**
 
