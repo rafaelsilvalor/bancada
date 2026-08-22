@@ -1,0 +1,23 @@
+# Line endings are a property of this repository, not of each contributor's
+# global git config.
+#
+# `plugins/bancada/bin/bancada` is a POSIX script. A shebang line that ends in
+# CRLF fails on Linux and macOS with "bad interpreter", and the CI matrix runs
+# on both. Relying on everyone having `core.autocrlf` set the same way is not a
+# guarantee; this file is.
+
+* text=auto eol=lf
+
+# Windows batch wrappers are the exception: cmd.exe wants CRLF.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# Never transform these, whatever a future contributor's settings say.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
