@@ -47,6 +47,12 @@ export const SPEC = {
       maxSubject: { type: "number", default: 72 },
       requireImperative: { type: "boolean", default: true },
       denyVerbs: { type: "string[]", default: [] },
+      // Regular expressions matched case-insensitively against whole lines of
+      // the message. This is how a project keeps attribution it did not ask for
+      // out of its history — an assistant's Co-Authored-By, a tool's
+      // advertisement footer. Empty by default: whose name belongs in a commit
+      // is the project's call, not bancada's.
+      denyTrailers: { type: "string[]", default: [] },
     },
     green: {
       enabled: { type: "boolean", default: false },

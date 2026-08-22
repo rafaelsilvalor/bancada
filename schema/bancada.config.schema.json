@@ -65,6 +65,13 @@
                 "type": "string"
               },
               "default": []
+            },
+            "denyTrailers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "default": []
             }
           }
         },

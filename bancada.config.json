@@ -2,13 +2,21 @@
   "$schema": "./schema/bancada.config.schema.json",
   "language": "en",
   "source": {
-    "include": ["plugins/**/*.mjs", "scripts/**/*.mjs"]
+    "include": [
+      "plugins/**/*.mjs",
+      "scripts/**/*.mjs"
+    ]
   },
   "gates": {
     "commit": {
       "enabled": true,
       "conventional": true,
-      "maxSubject": 72
+      "maxSubject": 72,
+      "denyTrailers": [
+        "^Co-Authored-By:.*(Claude|Anthropic|noreply@anthropic)",
+        "Generated with .*Claude Code",
+        "^Signed-off-by:.*(Claude|Anthropic)"
+      ]
     },
     "secrets": {
       "enabled": true
