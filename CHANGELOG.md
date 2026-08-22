@@ -203,13 +203,30 @@ with `--plugin-dir`)
 - An unknown model falls back to the *smallest* known window. Guessing large
   would under-report the risk, and this report exists to warn.
 
-**Not measured**
+**Measured** (`scripts/measure-probe.mjs`, Haiku 4.5, 2 runs per arm)
 
-- The probe's actual token saving. The A/B — the same question answered in the
-  conversation and through the probe, with both token counts — still has not
-  been run. It needs a real session, and the nested CLI has no stored
-  credentials on this machine. Everything claimed about the probe's economics
-  remains documented mechanism, not measurement.
+The same research question, answered inline and through the probe:
+
+```
+arm      runs      billed input      output    cache read      cost USD     wall s
+inline      2             38906        4014        226081        0.1195       35.6
+probe       2             23955        3164        238931        0.0696       36.9
+```
+
+Delegating cost **0.58x** — cheaper, not dearer. That was not the expected
+result. Anthropic's published multi-agent figures put a multi-agent system at
+roughly 15x a single agent, but those describe an orchestrator fanning out to
+several workers. A forked skill is a different shape: it *replaces* the main
+turn rather than adding to it, and the Explore agent it runs on skips the
+CLAUDE.md hierarchy and the git-status snapshot on purpose.
+
+**What this does not measure, and cannot.** The probe mainly exists so an
+ongoing conversation does not accumulate the exploration. A one-shot `-p` run
+has no ongoing conversation — it ends immediately, so there is no later turn to
+be cheaper. That needs a two-turn session, reading the cache-read tokens on the
+second turn to see what the first left behind. Not built.
+
+n is 2. Variance is unknown.
 
 
 ### bancada-flow

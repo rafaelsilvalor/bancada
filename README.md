@@ -11,9 +11,10 @@ denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
 > **Status: early. v0.1.0, Phase 6 of 10.**
-> Two gates exist — commit messages and layering — and the commit gate has
-> been verified refusing a real commit inside a real session. The rest are not
-> written. Nothing here is installable from a marketplace yet. See
+> Two gates exist — commit messages and layering — both verified refusing real
+> input, and the commit gate verified inside a real session. The context plugin
+> ships a probe, a skill factory and a listing-budget meter. The remaining gates
+> are not written and nothing is installable from a marketplace yet. See
 > [Project status](#project-status) for exactly what exists.
 
 ## Why it exists
@@ -30,8 +31,9 @@ turn that created it and the reason goes straight back to the model.
 **Context is spent without anyone counting.** A subagent that researches in an
 isolated window and returns a summary is a real saving — but a *custom* subagent
 reloads the whole `CLAUDE.md` hierarchy on every call, which is the cost it was
-supposed to avoid. bancada ships the version that doesn't, and then measures
-whether it actually paid.
+supposed to avoid. bancada ships the version that doesn't, and measured it: on
+one research question, delegating cost 0.58x of answering inline. See the
+CHANGELOG for the numbers and for what that measurement cannot tell you.
 
 **Skills hit a ceiling nobody sees.** Claude Code budgets the skill listing at
 about 1% of the model's context window. When it overflows, descriptions are
