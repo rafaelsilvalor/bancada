@@ -79,6 +79,28 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
 - `hooks/commit-guard.mjs` is gone; the same six payloads produce the same six
   verdicts through the dispatcher.
 
+**Phase 4 - telemetry and yield**
+
+- `lib/telemetry.mjs`: one record per tool call, written by the dispatcher.
+  Emission never changes a verdict — nothing on this path throws, on any branch,
+  because a gate that refuses a commit over a failed metrics write fails in a
+  way nobody can explain. Content is never written, only a truncated digest.
+- An absent input hashes to the empty string rather than to the digest of "".
+  Otherwise every input-less event would share one digest and read as the same
+  input recurring, corrupting the exact measurement the stream exists to make.
+- A record names both the gate and the rule that fired. Reporting only the rule
+  makes `commit-ok` and `commit-trailer` look like separate gates; reporting
+  only the gate hides what it found. The first version conflated them, and the
+  first real report is what showed it.
+- `lib/yield.mjs` and `bancada yield`: decisions by outcome, per gate with a
+  rule breakdown, gates that never fired, and the sharpest signal in the report
+  — the same input refused more than once, which means the reason is not
+  landing and the gate has become friction rather than feedback.
+- A damaged line in the stream is counted, never skipped. A reader that hides
+  damage turns a real problem into a quietly smaller denominator.
+- An empty stream says so explicitly, and says that it cannot distinguish
+  "the gates found nothing" from "the gates are not running".
+
 **Known gaps in this release**
 
 - Validation messages are English even when `language` is `pt-BR`. Section

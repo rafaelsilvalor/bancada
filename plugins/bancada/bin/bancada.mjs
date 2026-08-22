@@ -8,6 +8,7 @@
  */
 
 import { runDoctor } from "../lib/doctor.mjs";
+import { runYield } from "../lib/yield-cli.mjs";
 
 const VERSION = "0.1.0";
 
@@ -15,11 +16,11 @@ const USAGE = `bancada ${VERSION}
 
 Usage:
   bancada doctor [--dir <path>] [--json]   report what is configured and what guards nothing
+  bancada yield  [--dir <path>] [--json]   report what the gates actually did
   bancada version                          print the version
   bancada help                             print this
 
 Not implemented yet (see the phase table in README.md):
-  bancada yield     gate and context yield reporting
   bancada rules     write .claude/rules/bancada.md into the project
   bancada init      interview a project into a starting config
 `;
@@ -50,6 +51,16 @@ function main(argv) {
       return report.exitCode;
     }
 
+    case "yield": {
+      const report = runYield({ projectDir: args.dir });
+      if (args.json) {
+        process.stdout.write(JSON.stringify(report.summary, null, 2) + "\n");
+      } else {
+        process.stdout.write(report.lines.join("\n") + "\n");
+      }
+      return report.exitCode;
+    }
+
     case "version":
     case "--version":
       process.stdout.write(VERSION + "\n");
@@ -61,7 +72,6 @@ function main(argv) {
 
     // A command named in the usage text but not built yet exits non-zero and
     // says so. Printing nothing and exiting 0 would read as success.
-    case "yield":
     case "rules":
     case "init":
       process.stderr.write(`bancada ${args.command}: not implemented yet in ${VERSION}\n`);

@@ -45,9 +45,15 @@ export function fold(verdicts) {
 
   const reasons = winners.map((v) => v.reason).filter((r) => typeof r === "string" && r !== "");
 
+  // `check` names the gate; `rule` names what inside it fired. A report needs
+  // both — how often a gate looked, and what it found — and collapsing them
+  // makes every rule look like a separate gate.
+  const rules = winners.map((v) => v.rule).filter(Boolean);
+
   return {
     decision,
     check: winners.map((v) => v.check).join("+"),
+    rule: rules.length > 0 ? rules.join("+") : undefined,
     reason: reasons.length > 0 ? reasons.join("\n\n") : null,
     verdicts: considered,
   };

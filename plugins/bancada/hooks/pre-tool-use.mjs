@@ -8,7 +8,12 @@
  * docs/decisions/0001-one-dispatcher-per-event.md for why, and for the
  * measurement that says how much it saves.
  *
- * There is deliberately almost nothing in this file. Anything that grows here
+ * The telemetry write happens before the verdict is emitted, because emitting
+ * ends the process. It cannot change the verdict — `record` swallows everything
+ * — and it is deliberately not checked, since there is nothing useful to do
+ * about a failed write in the middle of a tool call.
+ *
+ * There is otherwise almost nothing in this file. Anything that grows here
  * belongs in a check.
  */
 
@@ -16,15 +21,20 @@ import { runGate, readHookInput, allow, deny, ask, eventOf } from "../lib/hook-i
 import { loadConfig } from "../lib/config.mjs";
 import { dispatch } from "../lib/dispatch.mjs";
 import { CHECKS } from "../lib/checks/index.mjs";
+import { record } from "../lib/telemetry.mjs";
 
 await runGate(async () => {
+  const startedAt = Date.now();
   const input = readHookInput();
   const projectDir = process.env.CLAUDE_PROJECT_DIR || input.cwd || process.cwd();
   const { config } = loadConfig(projectDir);
+  const event = eventOf(input);
 
   const verdict = await dispatch(input, config, CHECKS, "PreToolUse");
 
+  record({ projectDir, config, input, verdict, event, startedAt });
+
   if (verdict.decision === "deny") deny(verdict.reason);
-  if (verdict.decision === "ask") ask(verdict.reason, eventOf(input));
+  if (verdict.decision === "ask") ask(verdict.reason, event);
   allow();
 });

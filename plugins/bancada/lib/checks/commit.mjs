@@ -24,6 +24,15 @@ export const commitCheck = {
 
   run(input, config) {
     const verdict = decideSubject(extractSubject(input.tool_input.command), config.gates.commit);
-    return { decision: verdict.decision, check: verdict.check, reason: verdict.reason };
+    // Two names, because the report needs both questions answered: how often
+    // did this gate look (`check`), and what did it find (`rule`). Reporting
+    // only the rule makes `commit-ok` and `commit-trailer` look like separate
+    // gates; reporting only the gate hides which rule fired.
+    return {
+      decision: verdict.decision,
+      check: commitCheck.name,
+      rule: verdict.check,
+      reason: verdict.reason,
+    };
   },
 };
