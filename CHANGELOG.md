@@ -81,6 +81,11 @@ with `--plugin-dir`)
   reaching the model. It reports the Conventional Commits check rather than the
   imperative one, which is the documented order: shape first, because the other
   checks depend on it.
+- A message carrying `Co-Authored-By: Claude Opus 5` is refused, quoting the
+  offending line and the pattern that matched it. The subject `feat: add a
+  thing` passed the Conventional Commits, length and imperative checks first,
+  so this also demonstrates the chain running to its last check rather than
+  short-circuiting at the first.
 - `git commit -F mensagem.txt` produces a confirmation prompt carrying bancada's
   explanation, rather than passing. This one mattered: the `ask` path exits 0
   with JSON on stdout, and the `/hooks` panel describes exit 0 as
