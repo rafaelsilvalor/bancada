@@ -273,3 +273,21 @@ test("each configured layer contributes its own include entry", () => {
   );
   assert.ok(entries.every((e) => e.kind === "include"));
 });
+
+test("a layer's alias count rides along, because a layer can guard without matching a file", () => {
+  const config = merge(defaults(), {
+    gates: {
+      structure: {
+        layers: [
+          { name: "app", match: "src/app/**", mayImport: ["host"] },
+          { name: "host", match: "node_modules/@never-matches/**", mayImport: [], aliases: ["photoshop", "uxp"] },
+        ],
+      },
+    },
+  });
+  const entries = globSettings(config).filter((e) => e.setting.startsWith("gates.structure.layers"));
+  assert.deepEqual(
+    entries.map((e) => e.aliases),
+    [0, 2],
+  );
+});
