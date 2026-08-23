@@ -180,6 +180,7 @@ claude plugin validate . --strict
 ## Repository layout
 
 ```
+.claude/settings.json             bancada's own gates, run against this repository
 .claude-plugin/marketplace.json   the catalog
 plugins/bancada/                  the engine
 plugins/bancada-context/          context discipline
@@ -204,6 +205,13 @@ examples/                         starting configs per stack, each counted again
   what it explicitly left undone.
 - [Releasing](docs/releasing.md) — the four places a version lives, and which
   parts of publishing have never been run.
+
+This repository runs its own gates. `.claude/settings.json` points the
+`PreToolUse` and `Stop` hooks at the scripts in `plugins/bancada/hooks/`, so a
+session working on bancada is refused by bancada. It registers the hooks rather
+than loading the plugin — skills and agents do not arrive this way — and turning
+it on found one false refusal that had been sitting in the secret gate's own
+test, which the CHANGELOG records.
 
 ## License
 

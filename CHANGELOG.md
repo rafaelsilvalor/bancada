@@ -814,6 +814,39 @@ examples leave the layering out for the ordinary reason: it is what
   `git ls-files` as the file universe. A repository whose `.gitignore` differs
   will count differently.
 
+**Self-hosting the gates**
+
+- `.claude/settings.json` registers bancada's `PreToolUse` and `Stop` hooks
+  against the scripts in this repository, so a session working on bancada is
+  gated by bancada. Until now the project's own `denyTrailers`, layering and
+  ceilings held by the discipline of whoever was typing: an audit of all 28
+  commits found no attribution trailer and one author, but nothing had been
+  enforcing that, which is the difference the README's first paragraph is about.
+- This registers the hooks, not the plugin. Skills, agents and commands do not
+  load this way, and they are not what self-hosting is for. A plugin loaded with
+  `--plugin-dir` cannot be reached by `enabledPlugins`, and adding a local
+  marketplace is refused by enterprise policy on the machine this was built on,
+  so pointing the hooks at the files directly is the honest route rather than a
+  workaround.
+- One false refusal had to be fixed first, and it was found by asking what
+  self-hosting would do rather than by reading. Ten realistic payloads were put
+  through the real hooks against the real config: nine were correct — a layer
+  crossing refused, an assistant trailer refused, a message in a file escalated,
+  an 836-line CHANGELOG allowed because it is outside `source.include` — and one
+  was wrong. The secret gate refused an edit to `secrets.test.mjs`, on a
+  connection string that had been pasted in whole while every other fixture in
+  that file was assembled from parts to avoid exactly this.
+- That file now checks itself. Its last test scans its own source and fails if
+  the default families find anything, because the comment saying "assemble every
+  fixture from parts" was written in the same commit as the fixture that ignored
+  it. A rule the suite enforces on itself does not depend on the next person
+  reading the comment.
+- What this does not fix: a logic bug that makes a hook return `deny` rather
+  than throw would lock the session, since the matcher covers the write and
+  shell tools needed to undo it. `runGate` turns any throw into an abstention,
+  which is why self-hosting is safe against crashes but not against a confident
+  wrong verdict. The way out is outside Claude Code.
+
 **Phase 10 - full CI**
 
 **The question was which defects reach `main` with nothing complaining, not
