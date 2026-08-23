@@ -1,16 +1,18 @@
 /**
- * The check registry.
+ * Every check bancada has, across every event.
  *
- * Order matters only for the record: the dispatcher runs checks in this order
- * and the telemetry lists them the same way, so a stream stays comparable
- * across runs. It does not affect the verdict — the fold is by precedence, not
- * by position.
+ * Only callers that genuinely need the whole set import this — `bancada yield`
+ * does, because a report of what the gates did has to name the ones that never
+ * fired, and a gate missing from that list is invisible rather than reported.
  *
- * A check added here needs nothing else wired. That is the point of having one
- * entry point per event rather than one hook per gate.
+ * A hook entry point must not import this file. It would pull in the checks for
+ * events it will never dispatch, which is exactly what the per-event registries
+ * exist to prevent.
  */
 
-import { commitCheck } from "./commit.mjs";
-import { structureCheck } from "./structure.mjs";
+import { PRE_TOOL_USE_CHECKS } from "./pre-tool-use.mjs";
+import { STOP_CHECKS } from "./stop.mjs";
 
-export const CHECKS = [commitCheck, structureCheck];
+export { PRE_TOOL_USE_CHECKS, STOP_CHECKS };
+
+export const CHECKS = [...PRE_TOOL_USE_CHECKS, ...STOP_CHECKS];

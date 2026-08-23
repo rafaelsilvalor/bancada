@@ -25,6 +25,8 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+import { contradictions } from "./config-warnings.mjs";
+import { DEFAULT_FAMILIES } from "./secrets.mjs";
 
 export const CONFIG_FILENAME = "bancada.config.json";
 
@@ -58,16 +60,24 @@ export const SPEC = {
       enabled: { type: "boolean", default: false },
       commands: { type: "string[]", default: [] },
       watch: { type: "string[]", default: [] },
+      // The budget for the whole boundary, not for each command. The hook's own
+      // timeout in hooks.json is the hard bound above it; a value larger than
+      // that one is capped by the host rather than by bancada.
       timeoutMs: { type: "number", default: 300000 },
     },
     secrets: {
       enabled: { type: "boolean", default: true },
-      builtin: { type: "string[]", default: ["generic"] },
+      // The only gate that is on by default, so the families that are on by
+      // default are the prefix-anchored ones. `generic` matches ordinary code
+      // shapes, is the most useful and the noisiest, and is opted into.
+      builtin: { type: "string[]", default: [...DEFAULT_FAMILIES] },
       custom: { type: "string[]", default: [] },
     },
     size: {
       enabled: { type: "boolean", default: false },
       maxFileLines: { type: "number", default: 400 },
+      // Tests are long because they enumerate cases. One ceiling for both would
+      // be an argument for writing fewer of them.
       testCeiling: { type: "number", default: 800 },
     },
     structure: {
@@ -176,19 +186,9 @@ export function validate(raw, spec = SPEC, path = "") {
   }
 
   // Cross-field checks: a knob that contradicts another is worth saying out loud.
-  if (path === "") {
-    const g = raw.gates;
-    if (isPlainObject(g?.green) && g.green.enabled === true && Array.isArray(g.green.commands) && g.green.commands.length === 0) {
-      warnings.push("gates.green: enabled with no commands, so it will never run");
-    }
-    if (isPlainObject(g?.structure) && g.structure.enabled === true) {
-      const noLayers = !Array.isArray(g.structure.layers) || g.structure.layers.length === 0;
-      const noAdapter = typeof g.structure.adapterCommand !== "string" || g.structure.adapterCommand === "";
-      if (noLayers && noAdapter) {
-        warnings.push("gates.structure: enabled with neither layers nor an adapter command, so it will never run");
-      }
-    }
-  }
+  // They are hand-written policy rather than anything the SPEC implies, and they
+  // grow one entry per gate, so they live next door in config-warnings.mjs.
+  if (path === "") warnings.push(...contradictions(raw));
 
   return { errors, warnings };
 }

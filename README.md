@@ -10,11 +10,12 @@ That is the whole design. An instruction in `CLAUDE.md` is a request. A hook tha
 denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
-> **Status: early. v0.1.0, Phase 6 of 10.**
-> Two gates exist — commit messages and layering — both verified refusing real
-> input, and the commit gate verified inside a real session. The context plugin
-> ships a probe, a skill factory and a listing-budget meter. The remaining gates
-> are not written and nothing is installable from a marketplace yet. See
+> **Status: early. v0.1.0, Phase 7 of 10.**
+> Six gates exist — commit messages, secrets, file size, layering, the test/code
+> pair, and a green boundary on `Stop`. Five are verified refusing real input
+> inside a real session; the pair gate is verified on its own run and came back
+> unattributable in the sweep. The context plugin ships a probe, a skill factory
+> and a listing-budget meter. Nothing is installable from a marketplace yet. See
 > [Project status](#project-status) for exactly what exists.
 
 ## Why it exists
@@ -56,7 +57,7 @@ The common thread: **measure the harness, don't just believe it.**
 
 | Plugin | What it does | How sure we are |
 | --- | --- | --- |
-| `bancada` | The engine: config loading, the hook contract, telemetry, the structure gate, `doctor` and `yield` | The mechanism is proven in prior use; this implementation is new |
+| `bancada` | The engine: config loading, the hook contract, telemetry, six gates, `doctor` and `yield` | The mechanism is proven in prior use; this implementation is new |
 | `bancada-context` | The probe, the skill factory, the context budget meter | Mechanism is documented by Anthropic; the savings are unmeasured here |
 | `bancada-flow` | Three review Pauses, a brief format with a validator, four agent roles | Weakest evidence of the three. Ships disabled on purpose |
 
@@ -79,9 +80,10 @@ These are constraints on the project, checked in CI where a machine can check th
    nothing in a repository that did not define it. *(enforced:
    `scripts/check-no-rule-ids.mjs`)*
 6. **Cost is compared against a recorded baseline, not an invented ceiling.**
-   Hot-path code and CLI-only code are counted separately, because they are paid
-   for at different times: one on every tool call, the other only when a human
-   runs a command. Growth past the tolerance fails until someone records a new
+   Each entry point is counted separately, because they are paid for at
+   different times: the tool-call dispatcher on every tool call, the green
+   boundary once when a turn ends, the CLI only when a human runs a command.
+   Growth past the tolerance fails until someone records a new
    baseline, so every increase is a decision in the history. Latency is measured
    and reported but never enforced — CI runners vary too much for a millisecond
    threshold to mean anything. *(enforced: `scripts/check-cost.mjs`)*
@@ -103,8 +105,8 @@ Ten phases. This repository is at the end of the sixth.
 | 5 | The structure gate | **done** |
 | 5b | `/bancada:structure` and the external-tool adapter | **done** |
 | 6 | `bancada-context`: probe, skill factory, budget meter | **done** |
-| 7 | Remaining gates: green boundary, secrets, size, test/code pair | next |
-| 8 | `bancada-flow` | |
+| 7 | Remaining gates: green boundary, secrets, size, test/code pair | **done** |
+| 8 | `bancada-flow` | next |
 | 9 | Docs, examples, public v0.1.0 release | |
 | 10 | Full CI | |
 

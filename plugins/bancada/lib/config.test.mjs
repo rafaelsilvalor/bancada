@@ -69,6 +69,13 @@ test("gates that are safe without configuration ship enabled", () => {
   assert.equal(d.gates.secrets.enabled, true);
 });
 
+test("the only default-on scanner runs only its precise families", () => {
+  // The family that matches ordinary code shapes is the useful one and the
+  // noisy one. On by default it would refuse somebody's fixture on day one,
+  // and the fix everyone reaches for first is switching bancada off entirely.
+  assert.deepEqual(defaults().gates.secrets.builtin, ["provider", "key"]);
+});
+
 // --- validation ---
 
 test("a valid config produces no errors and no warnings", () => {
@@ -145,6 +152,23 @@ test("green enabled with no commands warns instead of pretending to guard", () =
 test("structure enabled with neither layers nor an adapter warns", () => {
   const { warnings } = validate({ gates: { structure: { enabled: true } } });
   assert.match(warnings.join("\n"), /gates\.structure: enabled with neither layers nor an adapter/);
+});
+
+test("a misspelled secret family warns rather than quietly scanning for less", () => {
+  const { errors, warnings } = validate({ gates: { secrets: { builtin: ["provider", "genericc"] } } });
+  assert.deepEqual(errors, [], "the type is right; only the value is unknown");
+  assert.match(warnings.join("\n"), /no such pattern family: genericc/);
+  assert.match(warnings.join("\n"), /known: provider, key, generic/);
+});
+
+test("secrets enabled with nothing to look for warns", () => {
+  const { warnings } = validate({ gates: { secrets: { enabled: true, builtin: [], custom: [] } } });
+  assert.match(warnings.join("\n"), /gates\.secrets: enabled with no pattern families/);
+});
+
+test("a test ceiling below the source ceiling is a contradiction worth saying out loud", () => {
+  const { warnings } = validate({ gates: { size: { maxFileLines: 400, testCeiling: 100 } } });
+  assert.match(warnings.join("\n"), /testCeiling is below maxFileLines/);
 });
 
 test("structure enabled with only an adapter command does not warn", () => {

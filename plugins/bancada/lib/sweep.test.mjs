@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { runSweep } from "./sweep.mjs";
 import { defaults, merge } from "./config.mjs";
-import { introducedText, structureCheck } from "./checks/structure.mjs";
+import { structureCheck } from "./checks/structure.mjs";
 
 const LAYERS = [
   { name: "lib", match: "src/lib/**", mayImport: [] },
@@ -116,14 +116,6 @@ test("every violation in a file is listed, not only the first", () => {
 });
 
 // --- the check adapter ---
-
-test("the introduced text is read from whichever field the tool uses", () => {
-  assert.equal(introducedText({ content: "a" }), "a");
-  assert.equal(introducedText({ new_string: "b" }), "b");
-  assert.equal(introducedText({ edits: [{ new_string: "c" }, { new_string: "d" }] }), "c\nd");
-  assert.equal(introducedText({}), "");
-  assert.equal(introducedText(null), "");
-});
 
 test("the check applies only to write tools, and only when layers exist", () => {
   const config = merge(defaults(), configured);

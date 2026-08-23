@@ -13,6 +13,19 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node",
+            "args": ["${CLAUDE_PLUGIN_ROOT}/hooks/stop.mjs"],
+            "statusMessage": "bancada: green boundary",
+            "timeout": 600
+          }
+        ]
+      }
     ]
   }
 }

@@ -20,7 +20,7 @@
 import { runGate, readHookInput, allow, deny, ask, eventOf } from "../lib/hook-io.mjs";
 import { loadConfig } from "../lib/config.mjs";
 import { dispatch } from "../lib/dispatch.mjs";
-import { CHECKS } from "../lib/checks/index.mjs";
+import { PRE_TOOL_USE_CHECKS } from "../lib/checks/pre-tool-use.mjs";
 import { record } from "../lib/telemetry.mjs";
 
 await runGate(async () => {
@@ -30,7 +30,7 @@ await runGate(async () => {
   const { config } = loadConfig(projectDir);
   const event = eventOf(input);
 
-  const verdict = await dispatch(input, config, CHECKS, "PreToolUse");
+  const verdict = await dispatch(input, config, PRE_TOOL_USE_CHECKS, "PreToolUse");
 
   record({ projectDir, config, input, verdict, event, startedAt });
 

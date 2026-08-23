@@ -152,6 +152,109 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
   the first version reported an uninstalled tool as a layering violation, which
   is exactly the conflation the branch exists to prevent.
 
+**Phase 7 - the remaining gates**
+
+- `lib/secrets.mjs`: a credential is refused in the turn that writes it, in a
+  written file or on a shell command line. This is the only gate that is on by
+  default, which decides what a pattern has to earn: the `provider` and `key`
+  families are prefix-anchored shapes an issuer hands out — `AKIA`, `ghp_`,
+  `sk-ant-`, a PEM header — and the `generic` family, which matches
+  `password = "..."`, is the most useful and the noisiest and is opted into.
+  A default-on refusal that fires on somebody's fixture does not get narrowed;
+  it gets the whole harness switched off, and then every gate is gone at once.
+- The refusal never repeats the secret. It carries the family, the line and four
+  characters of prefix, because a gate whose complaint about a leaked key is to
+  quote the key has leaked it a second time. A value naming itself an example is
+  not a finding, AWS's own documentation key included.
+- `lib/size.mjs`: a ceiling on the resulting file, not on the edit. The
+  arithmetic shortcut — subtract the old lines, add the new — is wrong for
+  `replace_all` and wrong for a string that occurs twice, so the replacement is
+  applied to the current contents instead. A file that cannot be read gets no
+  verdict under its own rule name, so the coverage gap appears in `bancada
+  yield` rather than being implied.
+- An over-sized file stays editable downward. A ceiling that refuses every edit
+  to a file already past it makes the only fix impossible, and the first thing
+  anyone does about that is delete the ceiling.
+- The size gate is the one write check that asks whether the file is source at
+  all, through `source.include`. Applied to everything it would refuse a long
+  fixture or a generated lockfile. The secret gate makes the opposite call for
+  the same reason in reverse: a credential in a `.env` is exactly the one worth
+  catching, and `.env` is in nobody's source globs.
+- `lib/pair.mjs`: the role that writes the code does not edit the test, and the
+  role that writes the test does not edit the code. The gate reads `agent_type`,
+  which the CLI documents as present inside a subagent or on the main thread of
+  a session started with `--agent`. A payload without it is the ordinary main
+  thread and is left alone: a session that entered no role is not doing pair
+  work.
+- `lib/green.mjs` and `hooks/stop.mjs`: the turn does not end on a red build.
+  This is the gate docs/decisions/0001-one-dispatcher-per-event named as the one
+  that stays out of the tool-call dispatcher, because it runs a type-check and a
+  test suite. It has its own entry point, its own registry and its own timeout,
+  and `timeoutMs` is a budget for the whole boundary rather than for each
+  command. The first failure stops the rest: a type error usually makes the
+  tests fail too, and reporting both makes the model fix the symptom.
+- A boundary that cannot start is a setup problem, not a red build. It reports
+  itself through `systemMessage` and lets the turn end, because bancada's bug
+  becoming the user's work stoppage is how a harness gets uninstalled.
+- One registry per event, mirroring one entry point per event.
+  `hooks/pre-tool-use.mjs` imports the tool-call registry alone, so the green
+  boundary's module — which reaches for `child_process` — is never loaded on a
+  tool call that could not use it. The cost check now counts three buckets
+  instead of two for the same reason: hot path, turn end, and CLI. The first
+  recording filed the boundary under "on demand", which was wrong by however
+  many turns a session has.
+- `lib/writes.mjs`, `lib/run.mjs` and `lib/checks/where.mjs`: what a write tool
+  is doing, how to run a configured command, and how to reconcile an absolute
+  path against the project root. Four checks needed each of those, and the
+  path-reconciliation one had already produced a gate that attributed nothing.
+
+**Measured**
+
+- Hot path 1483 → 2212 lines, tolerance exceeded, new baseline recorded on
+  purpose. Latency for a `git commit` payload is 103 ms median of 11, of which
+  25 ms is bancada and 78 ms is node starting up — five gates in one process,
+  against the 99 ms two of them cost in the dispatcher decision.
+- That latency probe was writing its eleven synthetic tool calls into this
+  project's own telemetry, where `bancada yield` counted them as real. It now
+  runs against a copy of the config in a throwaway directory. The gate still
+  does its full work, telemetry write included; only the records land somewhere
+  disposable.
+- bancada's own `maxFileLines` of 300 refused two of its own files the moment the
+  gate existed: `scripts/verify-hooks.mjs` at 382 lines and `lib/config.mjs` at
+  309. Both were split along a seam that was already there — the case table from
+  the harness, the cross-field warnings from the SPEC-derived validator — rather
+  than by raising the number to fit the code.
+
+**Verified end to end** (Claude Code v2.1.240, Haiku, each case with and without
+the plugin, in a throwaway repository)
+
+```
+ok    a write carrying a credential
+        denied with the plugin, allowed without it
+ok    a write past the line ceiling
+        denied with the plugin, allowed without it
+????  the code role editing a test
+        refused with and without the plugin, so this run cannot attribute it
+ok    a green boundary that fails when the turn ends
+        the boundary ran 2 time(s) with the plugin and 0 without
+        turns: 10 with the plugin, 2 without (reported, not enforced)
+
+9 of 9 conclusive case(s) behaved as expected.
+1 case(s) inconclusive: the model never issued the command under test.
+Cost of this verification: $0.7883
+```
+
+- The pair case is attributable and was attributed on its own run — "denied with
+  the plugin, allowed without it" — and came back inconclusive in the sweep
+  above, where the control arm refused the same write for a reason that is not
+  bancada's. One conclusive run is what exists; the flakiness is in the
+  attribution, not in the gate.
+- The green boundary corrected something written into its own module. The design
+  honours `stop_hook_active` and the comment claimed that meant blocking once per
+  session. It ran twice across ten turns, so a later stop starts a fresh
+  sequence. What the gate guarantees is one check per turn end, not that the
+  session cannot end red; the comment now says so.
+
 **Known gaps in this release**
 
 - Validation messages are English even when `language` is `pt-BR`. Section
@@ -160,6 +263,18 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
   returning `{key, params}` — a deliberate change, not a patch.
 - Whether a plugin can ship `.claude/rules/` is still established by omission
   from the official component table, not by experiment.
+- Deny reasons from the four new gates are English whatever `language` says.
+  They are formatted text, the same shape as the validator's strings above, and
+  they get fixed by the same change.
+- The green boundary re-runs on a later stop but not inside a blocking sequence,
+  so a session can still end red. The fix — re-running when a watched file
+  changed since the last run — needs state carried between stops.
+- No gate reads what is already in the repository. The secret gate judges the
+  text a turn introduces, so a credential committed before bancada was installed
+  is invisible to it; that is `git secrets` over history, a different job. The
+  size gate has the same shape and, unlike layering, has no `bancada check`
+  sweep to answer "how many files are already over" before the ceiling is
+  chosen.
 
 **Verified end to end in a real session** (Claude Code v2.1.240, plugin loaded
 with `--plugin-dir`)

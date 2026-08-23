@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadConfig as realLoadConfig } from "./config.mjs";
 import { listProjectFiles as realListFiles } from "./files.mjs";
+import { runCommand } from "./run.mjs";
 import { checkLayering } from "./structure.mjs";
 
 const SOURCE_LIKE = /\.(m|c)?(j|t)sx?$|\.py$|\.go$/;
@@ -34,47 +35,14 @@ const ADAPTER_TIMEOUT_MS = 120000;
  * analyser takes seconds, and seconds on every edit is a tax nobody would keep
  * paying.
  *
- * A command that cannot be run at all is reported and does not fail the sweep.
- * A missing binary is a setup problem, not a layering violation, and conflating
- * them would make the exit code mean two different things.
+ * Telling "reported a problem" apart from "never started" is `run.mjs`'s job,
+ * shared with the green boundary. A missing binary is a setup problem, not a
+ * layering violation, and conflating them would make the exit code mean two
+ * different things.
  */
 export function runAdapter(command, projectDir, { spawn = spawnSync } = {}) {
   if (typeof command !== "string" || command.trim() === "") return null;
-
-  let result;
-  try {
-    result = spawn(command, {
-      cwd: projectDir,
-      shell: true,
-      encoding: "utf8",
-      timeout: ADAPTER_TIMEOUT_MS,
-      maxBuffer: 8 * 1024 * 1024,
-    });
-  } catch (e) {
-    return { ran: false, reason: String(e?.message ?? e) };
-  }
-
-  if (result.error) return { ran: false, reason: String(result.error.message ?? result.error) };
-  if (result.signal) return { ran: false, reason: `killed by ${result.signal} after ${ADAPTER_TIMEOUT_MS} ms` };
-
-  // The command runs through a shell, so a missing binary does not surface as
-  // `result.error` — the shell itself starts fine and exits with a
-  // command-not-found code. Without this, an uninstalled checker would be
-  // reported as a layering violation, which is exactly the conflation the
-  // "could not run" branch exists to prevent.
-  const NOT_FOUND = new Set([126, 127, 9009]);
-  const stderr = typeof result.stderr === "string" ? result.stderr : "";
-  if (NOT_FOUND.has(result.status) || /not found|not recognized|No such file or directory/i.test(stderr)) {
-    return {
-      ran: false,
-      reason: `the command could not be found (exit ${result.status})${stderr.trim() ? `: ${stderr.trim().split(/\r?\n/)[0]}` : ""}`,
-    };
-  }
-
-  const output = [result.stdout, result.stderr]
-    .filter((s) => typeof s === "string" && s.trim() !== "")
-    .join("\n");
-  return { ran: true, ok: result.status === 0, status: result.status, output: output.trim() };
+  return runCommand(command, { cwd: projectDir, timeoutMs: ADAPTER_TIMEOUT_MS, spawn });
 }
 
 /**
