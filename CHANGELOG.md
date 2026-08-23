@@ -909,13 +909,17 @@ dispatcher leaves a plugin that refuses nothing at all, and left 457 tests green
   measured passing CI. Both globs matched the same 26 files before the two
   wiring files were added, so the widening changed nothing except where a future
   test file is allowed to live.
-- No new job, and no new dependency. Median of three runs on this machine:
+- No new job, and no new dependency. Median of three runs on this machine, at
+  `62db6d8` — the commit that made the change, before anything merged on top of
+  it:
 
   ```
   $ node --test "plugins/*/lib/**/*.test.mjs"     457 tests   1662 ms
   $ node --test "plugins/*/**/*.test.mjs"         479 tests   7493 ms
   ```
 
+  Both counts have grown since and neither reproduces today. What the pair
+  measures is what widening the glob cost, not what the suite happens to hold.
   The 5.8 seconds buys 17 throwaway git repositories and 23 spawns of an entry
   point, paid once per operating system inside a job that was already running.
 - All four cost buckets are unchanged at 2257 / 660 / 934 / 1143 lines. A test
