@@ -1,0 +1,18 @@
+{
+  "language": "en",
+  "gates": {
+    "commit": {
+      "enabled": true,
+      "conventional": true,
+      "maxSubject": 72,
+      "denyTrailers": []
+    },
+    "secrets": {
+      "enabled": true
+    }
+  },
+  "telemetry": {
+    "enabled": true,
+    "dir": ".bancada/telemetry"
+  }
+}

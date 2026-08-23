@@ -1,18 +1,24 @@
 /**
- * Generate `schema/bancada.config.schema.json` from the config SPEC.
+ * Generate everything derived from the config SPEC.
  *
- * The schema is what an editor autocompletes against; the SPEC is what the
- * gates actually enforce. Writing both by hand guarantees they drift, and the
- * drift is invisible until someone's editor says a setting is fine and the
- * validator says it is not.
+ * Two artifacts: `schema/bancada.config.schema.json`, which an editor
+ * autocompletes against, and the settings table at the end of
+ * `docs/configuration.md`, which is what a person reads to find out what a knob
+ * defaults to. The SPEC is what the gates actually enforce. Writing any of the
+ * three by hand guarantees they drift, and the drift is invisible until
+ * someone's editor says a setting is fine and the validator says it is not, or
+ * until the documented default is not the default.
  *
- * Run with `--check` in CI to fail when the committed file is stale.
+ * Run with `--check` in CI to fail when either committed file is stale.
  */
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { SPEC } from "../plugins/bancada/lib/config.mjs";
 
 const OUT = "schema/bancada.config.schema.json";
+const DOC = "docs/configuration.md";
+const BEGIN = "<!-- generated: settings -->";
+const END = "<!-- /generated -->";
 
 const isLeaf = (node) => node !== null && typeof node === "object" && typeof node.type === "string";
 
@@ -76,6 +82,39 @@ schema.properties.$schema = { type: "string" };
 
 const text = JSON.stringify(schema, null, 2) + "\n";
 
+// --- the settings table in docs/configuration.md ---
+
+/** Every leaf in SPEC, as `path`, type and default, in declaration order. */
+function rows(spec, path = "", out = []) {
+  for (const [key, node] of Object.entries(spec)) {
+    const here = path ? `${path}.${key}` : key;
+    if (isLeaf(node)) {
+      const type = node.type === "enum" ? node.values.map((v) => `\`${v}\``).join(" or ") : `\`${node.type}\``;
+      out.push(`| \`${here}\` | ${type} | \`${JSON.stringify(node.default)}\` |`);
+    } else {
+      rows(node, here, out);
+    }
+  }
+  return out;
+}
+
+const table = ["| Setting | Type | Default |", "| --- | --- | --- |", ...rows(SPEC)].join("\n");
+
+/** Replace the generated block, leaving the hand-written prose alone. */
+function withTable(current) {
+  const from = current.indexOf(BEGIN);
+  const to = current.indexOf(END);
+  if (from === -1 || to === -1 || to < from) return null;
+  return current.slice(0, from) + BEGIN + "\n\n" + table + "\n\n" + current.slice(to);
+}
+
+const currentDoc = readFileSync(DOC, "utf8");
+const nextDoc = withTable(currentDoc);
+if (nextDoc === null) {
+  console.error(`${DOC}: the ${BEGIN} / ${END} markers are missing, so the table has nowhere to go.`);
+  process.exit(1);
+}
+
 if (process.argv.includes("--check")) {
   let current = "";
   try {
@@ -84,13 +123,15 @@ if (process.argv.includes("--check")) {
     console.error(`${OUT} is missing. Run: node scripts/gen-schema.mjs`);
     process.exit(1);
   }
-  if (current !== text) {
-    console.error(`${OUT} is stale. Run: node scripts/gen-schema.mjs`);
+  const stale = [current !== text && OUT, currentDoc !== nextDoc && DOC].filter(Boolean);
+  if (stale.length > 0) {
+    console.error(`${stale.join(" and ")} ${stale.length > 1 ? "are" : "is"} stale. Run: node scripts/gen-schema.mjs`);
     process.exit(1);
   }
-  console.log(`ok — ${OUT} matches the SPEC`);
+  console.log(`ok — ${OUT} and the settings table in ${DOC} match the SPEC`);
   process.exit(0);
 }
 
 writeFileSync(OUT, text);
-console.log(`wrote ${OUT}`);
+writeFileSync(DOC, nextDoc);
+console.log(`wrote ${OUT} and the settings table in ${DOC}`);

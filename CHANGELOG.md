@@ -698,3 +698,111 @@ case then passes.
 - This repository does not switch flow on for itself. Enabling Pause 1 here would
   require a brief per branch, which is a workflow decision rather than a
   verification, so the plugin is dogfooded through its tests and not through use.
+
+### the repository
+
+**Phase 9 - docs and examples**
+
+- `examples/`, promised by the repository layout since phase 1 and empty until
+  now: `minimal`, `typescript`, `python` and `go`, each a `bancada.config.json`
+  plus a README carrying the counts it was measured against.
+- **Every glob was counted against real repositories before it was written
+  down.** An example that ships a glob matching nothing is a gate that has
+  silently stopped existing, which is the failure the whole project is aimed at,
+  so shipping one would have been worse than shipping no examples. Seven
+  checkouts, at the commits recorded per example:
+
+  ```
+  example      repository        files   source.include   pair.testGlobs
+  typescript   honojs/hono         487              311              140
+  typescript   nestjs/nest        2298              899              466
+  typescript   vercel/commerce      79               64                0
+  python       pallets/flask       237               83               48
+  python       fastapi/fastapi    3140             1138              611
+  go           cli/cli            1362              920              363
+  go           gin-gonic/gin       131               99               40
+  ```
+
+- The measurement changed the TypeScript example before it shipped.
+  `src/**/*.{ts,tsx,mts,cts}` matched 311 of 487 files in hono and **nothing at
+  all** in nest, which keeps its code in `packages/*/`, or in commerce, which
+  uses `app/`, `components/` and `lib/`. The shipped glob names all five
+  directories and matches in all three.
+- The default `pair.testGlobs` — `**/*.test.*` and `**/*.spec.*` — matches **0
+  of 236** files in flask, 0 of 3139 in fastapi, 0 of 1361 in cli/cli and 0 of
+  130 in gin. It is JavaScript's naming convention, and it is read by the size
+  gate as well as the pair gate, so a Python or Go project on the default holds
+  every test file to `maxFileLines` instead of `testCeiling`. Both stack
+  examples replace it, and that is the single change worth copying out of them.
+- Ceilings were chosen from the distribution rather than from the default. Go's
+  ninetieth-percentile non-test file in cli/cli is 479 lines, so 400 would have
+  put 74 of 548 files over on installation day; the Go example uses 500 and 1000,
+  which leaves 50 and 31. Every example records that count, because nothing in
+  bancada answers "how many files are already over" before you choose.
+
+**No example enables the layering gate, and for Go that is not a preference**
+
+Configured with `cmd`, `internal` and `pkg` as layers, against cli/cli:
+
+```
+$ bancada check --dir cli
+863 file(s) in a declared layer, from git ls-files.
+50 import(s) could not be attributed to a layer and were not judged.
+
+No layering violation.
+```
+
+Those 863 files hold 8091 import specifiers. `lib/imports.mjs` saw 54 of them,
+could not attribute 50, and therefore judged 4 — because 827 of the 863 use Go's
+grouped `import ( ... )` block, which the module states it does not parse. The
+clean result is what a gate looks like when it examined nothing, so the Go
+example says to reach for `gates.structure.adapterCommand` instead. The other
+examples leave the layering out for the ordinary reason: it is what
+`/bancada:structure` derives from the code that exists.
+
+**Docs**
+
+- `docs/configuration.md`: every setting, and per gate what it refuses, when it
+  asks instead, and what it cannot see. The settings table at the end is
+  generated from the SPEC by `scripts/gen-schema.mjs`, which now emits two
+  artifacts and checks both — a documented default that is not the default is
+  the same class of lie as a schema that disagrees with the validator.
+- `docs/releasing.md`: the four places a version lives, including
+  `const VERSION` in the CLI, which is the one that gets forgotten.
+- README gains a getting-started sequence, a documentation index, and the fact
+  that a plugin cannot put a command on your `PATH`, so `bancada` is shorthand
+  for a script inside the plugin directory.
+
+**Checked by a machine, not by remembering**
+
+- `scripts/check-docs.mjs` loads every example through the same validator the
+  gates use and fails on an error or an unknown key: a knob renamed in the SPEC
+  otherwise turns every example that sets it into a setting silently ignored,
+  and the reader's gate is not running. It also fails when the version the CLI
+  prints is not the version the manifest ships. Both were verified by breaking
+  them on purpose — a typo'd knob, a wrong type, and a bumped `VERSION` — before
+  being verified passing.
+- What it cannot check is whether a glob still matches anything in a repository
+  it has never seen. Only `bancada doctor`, run where someone works, answers
+  that, which is why the counts and their commits are recorded per example.
+- CI gains both checks; the hygiene job now runs four.
+
+**Not done, and not pretended to be**
+
+- **The release is not cut.** No version was bumped, no `[Unreleased]` section
+  was closed, and no tag exists. `claude plugin tag --dry-run` was run for all
+  three plugins and reports that each manifest agrees with its marketplace
+  entry, which is the last check before tagging rather than the tagging.
+- The marketplace install path in the README is written from the CLI's own help
+  and has never been run: there is no published remote to run it against. Every
+  end-to-end verification in this file loaded the plugin from disk.
+- No `gates.green.commands` in any example was executed against its reference
+  repository. What is verified about that gate here is one property, driven
+  through the real hook: a command that cannot start is reported as a setup
+  problem and the turn is allowed to end.
+- `bancada doctor` reports `pair.testGlobs` as guarding nothing even when both
+  gates that read it are off, which is how the `minimal` example looks in a
+  Python repository. The line is true and, in that configuration, useless.
+- The examples were measured on one machine, at one commit per repository, with
+  `git ls-files` as the file universe. A repository whose `.gitignore` differs
+  will count differently.

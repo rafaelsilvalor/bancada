@@ -1,0 +1,44 @@
+{
+  "language": "en",
+  "source": {
+    "include": ["**/*.py"],
+    "exclude": [
+      "**/node_modules/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/.venv/**",
+      "**/venv/**",
+      "**/__pycache__/**",
+      "**/migrations/**"
+    ]
+  },
+  "gates": {
+    "commit": {
+      "enabled": true,
+      "conventional": true,
+      "maxSubject": 72,
+      "denyTrailers": []
+    },
+    "secrets": {
+      "enabled": true
+    },
+    "size": {
+      "enabled": true,
+      "maxFileLines": 400,
+      "testCeiling": 800
+    },
+    "green": {
+      "enabled": false,
+      "commands": ["python -m pytest -q"],
+      "watch": ["**/*.py"]
+    }
+  },
+  "pair": {
+    "enabled": false,
+    "testGlobs": ["**/test_*.py", "**/*_test.py", "tests/**/*.py", "**/conftest.py"]
+  },
+  "telemetry": {
+    "enabled": true,
+    "dir": ".bancada/telemetry"
+  }
+}
