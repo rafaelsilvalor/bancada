@@ -18,11 +18,12 @@ report that tells you whether yours still match anything:
 bancada doctor
 ```
 
-For editor completion, point at the generated schema:
-
-```json
-{ "$schema": "./schema/bancada.config.schema.json" }
-```
+For editor completion, add a `$schema` key pointing at
+`schema/bancada.config.schema.json` — the copy in this repository if you are
+working here, the copy inside the installed plugin otherwise. The examples omit
+it, because the right path depends on where the plugin was installed and a
+`$schema` that resolves to nothing turns validation off without saying so.
+bancada never reads the key itself; it validates against the SPEC either way.
 
 ## How the settings are validated
 
