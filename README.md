@@ -10,7 +10,8 @@ That is the whole design. An instruction in `CLAUDE.md` is a request. A hook tha
 denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
-> **Status: early. v0.1.0, Phase 9 of 10.**
+> **Status: early. Phase 9 of 10, and nothing is released — the manifests say
+> v0.1.0, no tag exists and no marketplace serves it.**
 > Six gates exist in the core — commit messages, secrets, file size, layering,
 > the test/code pair, and a green boundary on `Stop` that re-checks until the
 > turn is actually green. The flow plugin adds three Pauses, a brief format with
@@ -112,6 +113,7 @@ Ten phases. This repository is at the end of the ninth.
 | 7 | Remaining gates: green boundary, secrets, size, test/code pair | **done** |
 | 7b | The green boundary re-checks instead of standing down | **done** |
 | 8 | `bancada-flow`: the three Pauses, the brief, four roles | **done** |
+| 8b | Two gaps closed, and one settled by experiment | **done** |
 | 9 | Docs, examples, public v0.1.0 release | docs and examples **done**; the release is not cut |
 | 10 | Full CI | next |
 
