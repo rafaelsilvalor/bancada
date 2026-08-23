@@ -38,6 +38,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFil
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { COMMANDS } from "../lib/args.mjs";
 
 // `fileURLToPath` rather than the URL's `pathname`, which keeps the leading
 // slash before a Windows drive letter and leaves any space percent-encoded.
@@ -271,6 +272,63 @@ test("an unknown command exits non-zero and prints the usage", () => {
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /unknown command/);
   assert.match(r.stderr, /bancada doctor/);
+});
+
+/**
+ * The same refusal for a flag, spawned rather than parsed.
+ *
+ * `lib/args.test.mjs` asserts what the reader decides. What no unit test can see
+ * is whether the decision reaches the caller: before this, an unknown flag was
+ * pushed onto a list nothing read, and the command went on to print a confident
+ * report about the current working directory with exit 0. The exit code is
+ * compared against the unknown-command one rather than written here, so the two
+ * cannot drift apart.
+ */
+test("an unknown flag is refused exactly the way an unknown command is", () => {
+  const command = spawnSync(process.execPath, [CLI, "nonsense"], { encoding: "utf8" });
+  const flag = spawnSync(process.execPath, [CLI, "doctor", "--project", "."], { encoding: "utf8" });
+  assert.equal(flag.status, command.status, "an unknown flag and an unknown command share an exit code");
+  assert.match(flag.stderr, /unknown flag "--project"/);
+  assert.match(flag.stderr, /bancada doctor/, "the usage is printed, as it is for an unknown command");
+  assert.equal(flag.stdout, "", "no report is printed for an invocation that was not understood");
+});
+
+test("a flag missing its value is refused instead of falling back to the working directory", () => {
+  const r = spawnSync(process.execPath, [CLI, "doctor", "--dir"], { encoding: "utf8" });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /needs a value/);
+  assert.equal(r.stdout, "");
+});
+
+test("--dir naming something that is not a directory is refused, not reported on", () => {
+  const dir = sandbox(CONFIG);
+  const missing = spawnSync(process.execPath, [CLI, "doctor", "--dir", join(dir, "nope")], { encoding: "utf8" });
+  assert.equal(missing.status, 2);
+  assert.match(missing.stderr, /no such directory/);
+  assert.equal(missing.stdout, "", "reporting on defaults here is how doctor answered about a directory that is not there");
+
+  const file = spawnSync(process.execPath, [CLI, "doctor", "--dir", join(dir, "bancada.config.json")], {
+    encoding: "utf8",
+  });
+  assert.equal(file.status, 2);
+  assert.match(file.stderr, /not a directory/);
+});
+
+/**
+ * Every command the spec declares is one the CLI dispatches.
+ *
+ * `lib/args.mjs` now decides which commands exist, so a command added there and
+ * not wired here would fall past the switch. It exits 70 and says "not wired"
+ * rather than returning undefined, which `process.exit` would read as success —
+ * and this is what makes that backstop a test failure instead of a silent pass.
+ */
+test("every command lib/args.mjs declares is wired in the CLI", () => {
+  const dir = sandbox(CONFIG);
+  for (const command of Object.keys(COMMANDS)) {
+    const r = spawnSync(process.execPath, [CLI, command, "--dir", dir], { encoding: "utf8" });
+    assert.doesNotMatch(r.stderr, /is declared but not wired/, `${command} is declared and never dispatched`);
+    assert.notEqual(r.status, 70, `${command} fell past the switch`);
+  }
 });
 
 test("bancada check exits 1 on a violation and 0 without one, which is what CI reads", () => {

@@ -1024,3 +1024,91 @@ fourth design commitment forbids.
 - The alias count is carried on the coverage entry rather than recomputed in
   `doctor`, because `globSettings` is where the layer is already being read and a
   second reader is a second thing to keep in step.
+
+**A mistyped flag was a confident report about the wrong project**
+
+- `bin/bancada.mjs` read its arguments in a loop whose last branch pushed
+  anything it did not recognise onto a list nothing ever read. So an invented
+  flag and a typo both ran the command against the current working directory and
+  printed a whole report about a project the caller had not named. Measured at
+  `4c1d93c`, from a pristine bancada checkout, against a three-file throwaway
+  repository:
+
+  ```
+  $ bancada doctor --dir <throwaway> --json
+    configSource=file  fileCount=3    gatesOn=["commit","secrets"]                  exit=0
+
+  $ bancada doctor --project <throwaway> --json
+    configSource=file  fileCount=121  gatesOn=["commit","secrets","size","structure"]  exit=0
+
+  $ bancada doctor --dirr <throwaway> --json
+    configSource=file  fileCount=121  gatesOn=["commit","secrets","size","structure"]  exit=0
+
+  $ bancada doctor --dir                    # the flag with no value
+    exit=0
+  ```
+
+- Rows two and three are the defect, and `121` is this repository, not the
+  throwaway. A config source, a file count and a gate list are what a working
+  report looks like, so **the wrong answer was indistinguishable from the right
+  one** — in the one command the README tells people to run first. It was found
+  by a session that assumed `--project` existed, read the wrong report, and
+  worked around it by changing directory rather than noticing that its flag had
+  been dropped.
+
+- Same four invocations, after:
+
+  ```
+  $ bancada doctor --dir <throwaway> --json
+    configSource=file  fileCount=3    gatesOn=["commit","secrets"]   exit=0
+
+  $ bancada doctor --project <throwaway> --json
+    bancada: unknown flag "--project"                                exit=2
+
+  $ bancada doctor --dirr <throwaway> --json
+    bancada: unknown flag "--dirr"                                   exit=2
+
+  $ bancada doctor --dir
+    bancada: flag "--dir" needs a value: --dir <path>                 exit=2
+  ```
+
+- An unknown flag is now refused the way an unknown command already was: exit 2,
+  the offender quoted, the usage printed. Both go through one emitter and are
+  decided by one reader, so they cannot end up with different exit codes later.
+  The wiring test compares the two exit codes against each other rather than
+  writing either of them down.
+
+- `--dir` pointing at something that is not a directory was in scope after all.
+  It did not refuse; it fell through to the defaults and reported on them —
+  `--dir <a file>` exited 0 with "running on defaults" and "0 file(s) from a
+  directory walk", which is a report about nothing that reads like a report about
+  something. It now says `no such directory` or `not a directory`. That refusal
+  skips the usage text, because a wrong path is not a mistyped invocation; the
+  exit code is the same.
+
+- The reader is `lib/args.mjs`, a new module rather than a home in
+  `lib/config.mjs`, which is at 291 lines against this repository's own 300-line
+  ceiling. It is the only copy: `doctor`, `yield` and `check` all take `--dir`,
+  and three readers is how one of them ends up disagreeing with the other two.
+
+- The spec is data, and a flag carries its effect next to its spelling, so a flag
+  cannot be accepted by the parser and then dropped by whatever reads the result
+  — the same defect one layer down. Flags are declared per command, which is why
+  `bancada yield --skills` is refused by name instead of printing a report
+  missing the section that was asked for.
+
+- Also refused now: a bare argument where a flag belongs, and a value-taking flag
+  whose value is another flag. `--dir --json` used to set the project directory
+  to the string `--json`.
+
+- Beyond the brief, and found while writing the spec: `bancada --help` and
+  `bancada -h` exited 2 with `unknown command "--help"`. `--version` was already
+  read where a command belongs; `--help` was the one place the CLI refused
+  something it plainly understood.
+
+- Cost: the `cli` bucket goes from 1161 to 1311 lines against a limit of 1429, so
+  the recorded baseline of 1143 is unchanged. Tests go from 483 to 505 — eighteen
+  in `lib/args.test.mjs` for what the reader decides, four in
+  `hooks/wiring.test.mjs` for whether the decision reaches the caller, including
+  one that walks the declared commands and fails if any of them falls past the
+  dispatch.
