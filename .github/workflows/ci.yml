@@ -45,7 +45,7 @@ jobs:
       # everyone's PreToolUse should not carry a dependency tree. There is
       # nothing to install, so there is no install step.
       - name: Run unit tests
-        run: node --test "plugins/bancada/lib/**/*.test.mjs"
+        run: node --test "plugins/*/lib/**/*.test.mjs"
 
   hygiene:
     runs-on: ubuntu-latest

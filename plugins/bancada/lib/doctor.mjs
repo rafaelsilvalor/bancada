@@ -24,6 +24,10 @@ const GATES = [
   ["green", (c) => c.gates.green.enabled],
   ["structure", (c) => c.gates.structure.enabled],
   ["pair", (c) => c.pair.enabled],
+  // Configured here, enforced by a different plugin. The name says which, so a
+  // project that switched it on without installing bancada-flow can see why
+  // nothing is happening.
+  ["flow (bancada-flow)", (c) => c.flow.enabled],
 ];
 
 /**

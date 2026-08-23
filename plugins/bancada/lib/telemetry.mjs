@@ -29,8 +29,14 @@ import { join } from "node:path";
 
 export const STREAM_FILE = "gates.jsonl";
 
-/** Keys in a fixed order, so a stream stays diffable and greppable. */
-const RECORD_KEYS = [
+/**
+ * Keys in a fixed order, so a stream stays diffable and greppable.
+ *
+ * Exported because the order is a contract now, not an implementation detail:
+ * bancada-flow appends to the same stream without importing this module, and a
+ * test in that plugin pins its copy of this list against this one.
+ */
+export const RECORD_KEYS = [
   "ts",
   "session",
   "event",

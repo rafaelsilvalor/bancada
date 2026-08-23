@@ -28,8 +28,9 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, rmSync } from "node:fs";
-import { resolve } from "node:path";
+import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { CASES, makeSandbox, SANDBOX_ARTEFACTS } from "./verify-cases.mjs";
 
 const argv = process.argv.slice(2);
@@ -38,7 +39,39 @@ const MODEL = flag("--model", "haiku");
 const ONLY = flag("--only", null);
 const KEEP = argv.includes("--keep");
 
-const PLUGIN = resolve("plugins/bancada");
+/**
+ * A copy of a plugin with `defaultEnabled` removed, and why that is necessary.
+ *
+ * bancada-flow ships `defaultEnabled: false` on purpose, which the CLI documents
+ * as "starts disabled when the user has no explicit setting for it". Loading it
+ * with `--plugin-dir` therefore loads it and leaves it off, and no
+ * `enabledPlugins` key reaches a plugin that came from a directory rather than a
+ * marketplace — three key shapes were tried, in `--settings` and in
+ * `.claude/settings.local.json`, and the hook stayed silent in all five runs.
+ *
+ * So this case verifies a copy that differs from the shipped plugin in exactly
+ * one manifest field, whose only effect is whether the host switches it on. That
+ * is a real caveat and the report prints it. The alternative was no end-to-end
+ * evidence at all for the plugin that has the least of it.
+ */
+const enabledCopies = [];
+function enabledCopy(name) {
+  const dir = mkdtempSync(join(tmpdir(), `bancada-enabled-${name}-`));
+  cpSync(resolve("plugins", name), dir, { recursive: true });
+  const manifest = join(dir, ".claude-plugin", "plugin.json");
+  const parsed = JSON.parse(readFileSync(manifest, "utf8"));
+  delete parsed.defaultEnabled;
+  writeFileSync(manifest, JSON.stringify(parsed, null, 2) + "\n");
+  enabledCopies.push(dir);
+  return dir;
+}
+
+/** A case loads bancada unless it names the plugins it needs. */
+const pluginArgs = (c) =>
+  (c.plugins ?? ["bancada"]).flatMap((p) => [
+    "--plugin-dir",
+    (c.forceEnable ?? []).includes(p) ? enabledCopy(p) : resolve("plugins", p),
+  ]);
 
 function run(dir, c, withPlugin) {
   const args = [
@@ -51,7 +84,7 @@ function run(dir, c, withPlugin) {
     "--allowedTools",
     c.tools,
     ...(c.extraArgs ?? []),
-    ...(withPlugin ? ["--plugin-dir", PLUGIN] : []),
+    ...(withPlugin ? pluginArgs(c) : []),
   ];
   const r = spawnSync("claude", args, { cwd: dir, encoding: "utf8", maxBuffer: 32 * 1024 * 1024, timeout: 600000 });
   try {
@@ -181,6 +214,8 @@ if (inconclusive > 0) {
   console.log(`${inconclusive} case(s) inconclusive: the model never issued the command under test.`);
 }
 console.log(`Cost of this verification: $${spent.toFixed(4)}`);
+
+for (const d of enabledCopies) rmSync(d, { recursive: true, force: true });
 
 // A last guard against the failure this script already caused once.
 const leaked = SANDBOX_ARTEFACTS.filter(existsSync);

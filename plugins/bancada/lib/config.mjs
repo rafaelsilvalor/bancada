@@ -101,6 +101,21 @@ export const SPEC = {
     testGlobs: { type: "string[]", default: ["**/*.test.*", "**/*.spec.*"] },
   },
 
+  // Read by the bancada-flow plugin, declared here so that one config file has
+  // one validator, one generated schema and one place `doctor` looks. bancada
+  // itself never acts on these; without that plugin installed they do nothing.
+  // Leaving them out would make the whole group an unknown key, and `doctor`
+  // would report a correctly configured project as a misconfigured one.
+  flow: {
+    enabled: { type: "boolean", default: false },
+    briefDir: { type: "string", default: "docs/briefs/" },
+    // Which files require a brief. Empty means none, the same reading
+    // `source.include` gets: a process gate that quietly applied to everything
+    // would be discovered by being in the way.
+    scope: { type: "string[]", default: [] },
+    pauses: { type: "string[]", default: ["brief", "tests", "evidence"] },
+  },
+
   telemetry: {
     enabled: { type: "boolean", default: true },
     dir: { type: "string", default: ".bancada/telemetry" },

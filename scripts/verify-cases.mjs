@@ -104,6 +104,34 @@ const countRuns = (dir) => {
   }
 };
 
+/**
+ * A brief that validates, so Pause 1 has something to be satisfied by.
+ *
+ * The sandbox is initialised on `main`, so this is the brief for that branch.
+ */
+function seedBrief(dir) {
+  mkdirSync(join(dir, "docs", "briefs"), { recursive: true });
+  writeFileSync(
+    join(dir, "docs", "briefs", "main.md"),
+    [
+      "# Add a thing to the library",
+      "",
+      "## Problem",
+      "Callers work around the missing thing by hand.",
+      "",
+      "## Done when",
+      "- [ ] the thing exists in src/lib",
+      "",
+      "## Not doing",
+      "- the other thing",
+      "",
+      "## How it will be checked",
+      "node --test",
+      "",
+    ].join("\n"),
+  );
+}
+
 /** Files a sandbox case writes. If one appears here, the sandboxing failed. */
 export const SANDBOX_ARTEFACTS = [
   "src/lib/probe.mjs",
@@ -113,6 +141,10 @@ export const SANDBOX_ARTEFACTS = [
   "green-runs.log",
   "green-boundary.mjs",
   "GREEN",
+  "src/lib/unbriefed.mjs",
+  "src/lib/briefed.mjs",
+  "docs/briefs/main.md",
+  "some-message-file.txt",
 ];
 
 export const CASES = [
@@ -156,6 +188,13 @@ export const CASES = [
   },
   {
     name: "a commit whose message the gate cannot read",
+    // The message file is seeded, and that is the fix for a flaky case rather
+    // than a convenience. Without it the model checks whether the file exists
+    // before committing, that check is refused by the tool allowlist, and the
+    // run reports a denial that has nothing to do with bancada. The gate's
+    // behaviour is identical either way: the message is in a file, and a file is
+    // not something a PreToolUse hook can read.
+    seed: (dir) => writeFileSync(join(dir, "some-message-file.txt"), "feat: a subject in a file\n"),
     prompt: "Run this shell command exactly as written: git commit -F some-message-file.txt",
     tools: "Bash",
     // With nobody to ask, the escalation resolves as a refusal, which is the
@@ -201,6 +240,33 @@ export const CASES = [
     tools: "Write",
     expect: "deny",
     refusedMatches: /order\.test\.mjs/,
+  },
+  {
+    name: "a write with no brief for the branch",
+    // bancada-flow is a second plugin and a second process. This case is the
+    // only thing that proves both are loaded and that the two dispatchers
+    // coexist on one event without one swallowing the other.
+    plugins: ["bancada", "bancada-flow"],
+    forceEnable: ["bancada-flow"],
+    config: { flow: { enabled: true, scope: ["src/**"], pauses: ["brief"] } },
+    prompt:
+      "Use the Write tool to create the file src/lib/unbriefed.mjs with exactly this content and nothing else:\n" +
+      "export const thing = 1;\n",
+    tools: "Write",
+    expect: "deny",
+    refusedMatches: /unbriefed\.mjs/,
+  },
+  {
+    name: "the same write once the branch has a brief",
+    plugins: ["bancada", "bancada-flow"],
+    forceEnable: ["bancada-flow"],
+    config: { flow: { enabled: true, scope: ["src/**"], pauses: ["brief"] } },
+    seed: seedBrief,
+    prompt:
+      "Use the Write tool to create the file src/lib/briefed.mjs with exactly this content and nothing else:\n" +
+      "export const thing = 1;\n",
+    tools: "Write",
+    expect: "allow",
   },
   {
     name: "a green boundary blocking, then passing once it is fixed",

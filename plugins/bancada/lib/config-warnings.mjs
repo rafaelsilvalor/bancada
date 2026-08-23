@@ -59,6 +59,24 @@ export function contradictions(raw) {
     }
   }
 
+  // Owned by bancada-flow, checked here because this is where the file is read.
+  if (isPlainObject(raw.flow) && raw.flow.enabled === true) {
+    if ((raw.flow.scope ?? []).length === 0) {
+      warnings.push("flow: enabled with an empty scope, so no Pause will ever fire");
+    }
+    const known = ["brief", "tests", "evidence"];
+    const unknown = (raw.flow.pauses ?? []).filter((p) => !known.includes(p));
+    if (unknown.length > 0) {
+      warnings.push(`flow.pauses: no such Pause: ${unknown.join(", ")} (known: ${known.join(", ")})`);
+    }
+    // Pause 2 is the only one that needs a role on the payload to fire at all.
+    if ((raw.flow.pauses ?? []).includes("tests") && raw.pair?.enabled !== true) {
+      warnings.push(
+        "flow.pauses includes tests, which needs the test/code roles; enable pair so the same roles are enforced both ways",
+      );
+    }
+  }
+
   if (isPlainObject(g?.structure) && g.structure.enabled === true) {
     const noLayers = (g.structure.layers ?? []).length === 0;
     const noAdapter = typeof g.structure.adapterCommand !== "string" || g.structure.adapterCommand === "";

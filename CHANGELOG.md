@@ -335,6 +335,10 @@ all, so this case measures the model as well as the gate.
 - The green boundary trusts `git status` to say what changed. In a directory
   that is not a git repository it cannot tell, so it re-runs on every stop
   inside a blocking sequence and relies on the host's cap to end it.
+- `bancada yield` names gates that never fired from bancada's own registry, so a
+  Pause that is switched on and never fires is invisible to the report that
+  exists to find exactly that. `doctor` covers half of it by listing
+  `flow (bancada-flow)`; the two reports disagree about what they can see.
 - No gate reads what is already in the repository. The secret gate judges the
   text a turn introduces, so a credential committed before bancada was installed
   is invisible to it; that is `git secrets` over history, a different job. The
@@ -412,4 +416,116 @@ n is 2. Variance is unknown.
 
 ### bancada-flow
 
-- Manifest only. Ships disabled (`defaultEnabled: false`).
+**Phase 8 - the three Pauses**
+
+- There are three Pauses because there are four roles, and a Pause is a
+  handover. The planner hands a brief to the test role, the test role hands a
+  failing test to the code role, and the code role hands finished work back.
+  Each is a point where the work changes hands and nobody has looked at it yet,
+  which is the cheapest moment to look and the last cheap one.
+
+  ```
+  1  brief     nothing in scope is written until a brief exists and validates
+  2  tests     the code role does not write code until a test exists
+  3  evidence  a commit against an unsatisfied brief asks before it lands
+  ```
+
+- `lib/brief.mjs`: the artifact all three read. Four sections, each stopping a
+  specific failure — a problem stated without its solution, criteria as
+  checkboxes because Pause 3 counts the ticks, the scope that was declined so
+  creep and thoroughness stop looking alike, and how it will be checked, written
+  before anyone knows whether it will pass.
+- A ticked criterion must carry its evidence on an indented line beneath it.
+  That rule is mechanical on purpose: a tick with nothing under it is the
+  assertion without the evidence, which is the one thing this project is about.
+- **Pause 3 asks; it does not refuse.** An unsatisfied brief at commit time
+  usually means an intermediate commit, which is ordinary. It sometimes means
+  somebody is about to call unfinished work finished. The gate cannot tell those
+  apart, and one that cannot tell escalates — the same rule the commit gate
+  follows for a message it cannot read.
+- The Pauses are ordered and the first refusal wins, which is the opposite of
+  bancada's dispatcher. That is deliberate: Pause 2 has nothing to say if there
+  is no brief, and Pause 3 reads a document Pause 1 is still refusing to let you
+  skip. Reporting all three would report one problem and two of its consequences.
+- Four roles ship as agents — `planner`, `executor`, `test`, `code` — named to
+  match what `pair.testAgent` and `pair.codeAgent` already defaulted to, so the
+  pair gate recognises them without configuration. Pause 2 is the only one that
+  needs a role, which is why they ship together.
+- `/bancada-flow:brief` authors or revises the brief for the current branch.
+- Every Pause writes to bancada's telemetry stream, and every Pause that looked
+  is in the record rather than only the one that spoke. This is the plugin with
+  the least evidence behind it; the denominator is the half that decides whether
+  the friction is worth it.
+
+**Its own process, and the four things it copies**
+
+- `docs/decisions/0002-flow-ships-its-own-dispatcher.md`. The split between the
+  plugins is epistemic, so an unproven process gate must not be able to take down
+  gates that were verified refusing real input, and people who declined it must
+  not pay to parse it.
+- Measured, median of 15: bancada alone 98 ms, bancada-flow alone 92 ms, both in
+  parallel 114 ms. **The second process costs 16 ms** on a matching tool call,
+  for a project that opted into a plugin that ships disabled.
+- The first version of that measurement said 81 ms. bancada-flow was spawning
+  `git rev-parse` to learn the branch — 49 ms on this machine, paid on every tool
+  call to read one line of `.git/HEAD`. Reading the file took the plugin from
+  more expensive than the core to slightly cheaper than it.
+- A plugin cannot import from another plugin's directory without assuming where
+  the host put it. A marketplace install does keep them as siblings — checked in
+  the local plugin cache rather than assumed — but that is not a thing to build a
+  boundary on. So bancada-flow carries its own copy of the flow and pair
+  defaults, the telemetry defaults, the record's key order, the glob matcher and
+  the path reconciliation. `lib/pinned.test.mjs` imports both sides and fails on
+  the first divergence: the duplication is detected, not trusted.
+- The knobs themselves are declared once, in bancada's `SPEC`, so a project gets
+  one validator, one generated schema and one `doctor` report. bancada never acts
+  on the `flow` group; leaving it out would make a correct config report an
+  unknown key.
+
+**Verified end to end** (Claude Code v2.1.240, Haiku, with and without the
+plugins)
+
+```
+ok    a write with no brief for the branch
+        denied with the plugin, allowed without it
+ok    the same write once the branch has a brief
+        allowed, as it should be
+
+11 of 12 conclusive case(s) behaved as expected.   [the full sweep, $1.0066]
+```
+
+The one failure in that sweep was not a flow case and not a gate: on
+`git commit -F some-message-file.txt` the model ran `Test-Path` first to see
+whether the file existed, that check was refused by the tool allowlist, and the
+run reported a denial with nothing to do with bancada. Seeding the message file
+removes the variance without changing what the gate sees — a message in a file
+is unreadable to a `PreToolUse` hook whether or not the file is there — and the
+case then passes.
+
+- **Both cases run against a copy of the plugin with `defaultEnabled` removed,
+  and that is a real caveat.** Loading a `defaultEnabled: false` plugin with
+  `--plugin-dir` loads it and leaves it off. Three `enabledPlugins` key shapes
+  were tried, in `--settings` and in `.claude/settings.local.json`, and the hook
+  stayed silent in all five runs. What is verified is therefore a plugin
+  differing from the shipped one in one manifest field, whose only effect is
+  whether the host switches it on.
+- The first end-to-end run failed, and it failed for a bug every unit test had
+  passed over: Write hands the hook an absolute path, `src/**` matched nothing,
+  and Pause 1 read every write as out of scope and allowed it. bancada's layering
+  gate shipped exactly this bug in Phase 5. Twice is a pattern, so the fix has its
+  own file (`lib/paths.mjs`) and its own regression test naming both occurrences.
+- Driven against a real working tree with no API, the whole sequence behaves:
+  write refused before a brief, the brief itself always writable, an invalid
+  brief refused with its reasons, the code role refused before a test exists, the
+  same write allowed once one does, an unsatisfied brief asked about at commit,
+  a tick with no evidence asked about, and a satisfied brief let through. Twelve
+  steps, twelve as designed, twelve telemetry records in bancada's stream.
+
+**What is not established**
+
+- That any of this is worth its friction. The Pauses are enforced and verified;
+  whether they catch more than they cost is unmeasured, and `bancada yield` is
+  where that gets settled rather than argued.
+- This repository does not switch flow on for itself. Enabling Pause 1 here would
+  require a brief per branch, which is a workflow decision rather than a
+  verification, so the plugin is dogfooded through its tests and not through use.

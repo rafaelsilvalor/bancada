@@ -10,13 +10,15 @@ That is the whole design. An instruction in `CLAUDE.md` is a request. A hook tha
 denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
-> **Status: early. v0.1.0, Phase 7 of 10.**
-> Six gates exist — commit messages, secrets, file size, layering, the test/code
-> pair, and a green boundary on `Stop` that re-checks until the turn is actually
-> green. Five are verified refusing real input inside a real session; the pair
-> gate is verified on its own run and came back unattributable in the sweep. The
-> context plugin ships a probe, a skill factory and a listing-budget meter.
-> Nothing is installable from a marketplace yet. See
+> **Status: early. v0.1.0, Phase 8 of 10.**
+> Six gates exist in the core — commit messages, secrets, file size, layering,
+> the test/code pair, and a green boundary on `Stop` that re-checks until the
+> turn is actually green. The flow plugin adds three Pauses, a brief format with
+> a validator and four agent roles, and ships disabled. Every gate has been
+> verified refusing real input inside a real session, bar one caveat each for the
+> pair gate and the Pauses, both recorded in the CHANGELOG. The context plugin
+> ships a probe, a skill factory and a listing-budget meter. Nothing is
+> installable from a marketplace yet. See
 > [Project status](#project-status) for exactly what exists.
 
 ## Why it exists
@@ -60,7 +62,7 @@ The common thread: **measure the harness, don't just believe it.**
 | --- | --- | --- |
 | `bancada` | The engine: config loading, the hook contract, telemetry, six gates, `doctor` and `yield` | The mechanism is proven in prior use; this implementation is new |
 | `bancada-context` | The probe, the skill factory, the context budget meter | Mechanism is documented by Anthropic; the savings are unmeasured here |
-| `bancada-flow` | Three review Pauses, a brief format with a validator, four agent roles | Weakest evidence of the three. Ships disabled on purpose |
+| `bancada-flow` | Three review Pauses, a brief format with a validator, four agent roles | Weakest evidence of the three. The Pauses are enforced and verified; that they are *worth their friction* is unmeasured. Ships disabled on purpose |
 
 The split is not organizational, it is epistemic: what has proof goes in the
 core, what has only conviction goes in a package you opt into.
@@ -108,8 +110,8 @@ Ten phases. This repository is at the end of the sixth.
 | 6 | `bancada-context`: probe, skill factory, budget meter | **done** |
 | 7 | Remaining gates: green boundary, secrets, size, test/code pair | **done** |
 | 7b | The green boundary re-checks instead of standing down | **done** |
-| 8 | `bancada-flow` | next |
-| 9 | Docs, examples, public v0.1.0 release | |
+| 8 | `bancada-flow`: the three Pauses, the brief, four roles | **done** |
+| 9 | Docs, examples, public v0.1.0 release | next |
 | 10 | Full CI | |
 
 ## Try it locally
@@ -148,6 +150,7 @@ plugins/bancada-flow/             opinionated process, disabled by default
 schema/                           JSON Schema for bancada.config.json
 scripts/                          CI hygiene and cost checks
 docs/decisions/                   architecture decisions, with the measurements behind them
+docs/briefs/                      one brief per branch, when bancada-flow is on
 examples/                         starting configs per stack
 ```
 

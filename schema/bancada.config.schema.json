@@ -239,6 +239,38 @@
         }
       }
     },
+    "flow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "briefDir": {
+          "type": "string",
+          "default": "docs/briefs/"
+        },
+        "scope": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "pauses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "brief",
+            "tests",
+            "evidence"
+          ]
+        }
+      }
+    },
     "telemetry": {
       "type": "object",
       "additionalProperties": false,

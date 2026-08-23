@@ -10,12 +10,13 @@
  *
  * Two things had to change.
  *
- * The old check measured one bag of lines. There are three, one per entry point:
- * code that loads on every matching tool call, code that loads once when a turn
- * ends, and code that loads only when a human runs the CLI. They are paid at
- * different times and cannot share a budget. The third bucket was added when the
- * green boundary arrived and the baseline filed it under "on demand", which was
- * wrong by a factor of however many turns a session has.
+ * The old check measured one bag of lines. There is one bucket per entry point,
+ * because each is paid by different people at a different moment: on every
+ * matching tool call, once when a turn ends, on every tool call again but only
+ * for a project that opted into bancada-flow, and on demand when a human runs
+ * the CLI. The turn-end bucket was added when the green boundary arrived and the
+ * baseline filed it under "on demand", which was wrong by a factor of however
+ * many turns a session has.
  *
  * And lines were the wrong unit anyway. Hook code costs no context — it runs in
  * its own process and returns only a verdict — and its latency is dominated by
@@ -53,6 +54,11 @@ const TOLERANCE = 1.25;
 const ENTRY = {
   hot: ["plugins/bancada/hooks/pre-tool-use.mjs"],
   stop: ["plugins/bancada/hooks/stop.mjs"],
+  // A second process on the same event, priced in
+  // docs/decisions/0002-flow-ships-its-own-dispatcher.md. Counted separately
+  // because only a project that opted into bancada-flow pays it, and folding it
+  // into the hot path would charge everyone for a plugin that ships disabled.
+  flow: ["plugins/bancada-flow/hooks/pre-tool-use.mjs"],
   cli: ["plugins/bancada/bin/bancada.mjs"],
 };
 
@@ -88,9 +94,11 @@ function measure() {
   return {
     hotPathLines: sum(buckets.hot),
     stopLines: sum(buckets.stop),
+    flowLines: sum(buckets.flow),
     cliLines: sum(buckets.cli),
     hotPathFiles: [...buckets.hot].sort(),
     stopFiles: [...buckets.stop].sort(),
+    flowFiles: [...buckets.flow].sort(),
     cliFiles: [...buckets.cli].sort(),
   };
 }
@@ -154,6 +162,7 @@ if (args.includes("--update")) {
   console.log(`wrote ${BASELINE}`);
   console.log(`  hot path: ${current.hotPathLines} lines across ${current.hotPathFiles.length} files`);
   console.log(`  turn end: ${current.stopLines} lines across ${current.stopFiles.length} files`);
+  console.log(`  flow    : ${current.flowLines} lines across ${current.flowFiles.length} files`);
   console.log(`  cli only: ${current.cliLines} lines across ${current.cliFiles.length} files`);
   process.exit(0);
 }
@@ -169,6 +178,7 @@ try {
 const rows = [
   ["hot path (every tool call)", current.hotPathLines, baseline.hotPathLines],
   ["turn end (every Stop)", current.stopLines, baseline.stopLines],
+  ["flow (opted in, per call)", current.flowLines, baseline.flowLines],
   ["cli only (on demand)", current.cliLines, baseline.cliLines],
 ];
 
