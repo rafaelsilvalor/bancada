@@ -1,8 +1,8 @@
 {
   "hotPathLines": 2257,
-  "stopLines": 541,
-  "flowLines": 877,
-  "cliLines": 1118,
+  "stopLines": 660,
+  "flowLines": 934,
+  "cliLines": 1143,
   "hotPathFiles": [
     "plugins/bancada/hooks/pre-tool-use.mjs",
     "plugins/bancada/lib/checks/commit.mjs",
@@ -32,13 +32,15 @@
     "plugins/bancada/lib/checks/stop.mjs",
     "plugins/bancada/lib/green-state.mjs",
     "plugins/bancada/lib/green.mjs",
-    "plugins/bancada/lib/run.mjs"
+    "plugins/bancada/lib/run.mjs",
+    "plugins/bancada/lib/walk.mjs"
   ],
   "flowFiles": [
     "plugins/bancada-flow/hooks/pre-tool-use.mjs",
     "plugins/bancada-flow/lib/brief.mjs",
     "plugins/bancada-flow/lib/config.mjs",
     "plugins/bancada-flow/lib/glob.mjs",
+    "plugins/bancada-flow/lib/paths.mjs",
     "plugins/bancada-flow/lib/pauses.mjs",
     "plugins/bancada-flow/lib/record.mjs"
   ],
