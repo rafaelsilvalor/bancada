@@ -1,9 +1,10 @@
 /**
  * The duplication between the two plugins, held in place.
  *
- * bancada-flow copies four small things from bancada: the flow and pair
- * defaults, the telemetry defaults, the telemetry record's key order, and the
- * glob matcher. It copies them because a plugin cannot import from another
+ * bancada-flow copies six small things from bancada: the flow and pair defaults,
+ * the telemetry defaults, the telemetry record's key order, the glob matcher, the
+ * path reconciliation, and the gate name this plugin writes into the shared
+ * stream. It copies them because a plugin cannot import from another
  * plugin's directory without assuming where the host put it — a marketplace
  * install does keep them as siblings, which was checked, but an install layout
  * nobody documented is not a thing to build on.
@@ -17,12 +18,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { defaults as bancadaDefaults } from "../../bancada/lib/config.mjs";
+import { FOREIGN_CHECKS } from "../../bancada/lib/checks/index.mjs";
 import { RECORD_KEYS as BANCADA_KEYS, STREAM_FILE as BANCADA_STREAM } from "../../bancada/lib/telemetry.mjs";
 import { compileGlob as bancadaGlob } from "../../bancada/lib/glob.mjs";
 import { toProjectRelative as bancadaRelative } from "../../bancada/lib/structure.mjs";
 import { toProjectRelative } from "./paths.mjs";
-import { FLOW_DEFAULTS, PAIR_DEFAULTS, TELEMETRY_DEFAULTS } from "./config.mjs";
-import { RECORD_KEYS, STREAM_FILE, DEFAULT_TELEMETRY_DIR } from "./record.mjs";
+import { FLOW_DEFAULTS, PAIR_DEFAULTS, TELEMETRY_DEFAULTS, pauseEnabled } from "./config.mjs";
+import { CHECK_NAME, RECORD_KEYS, STREAM_FILE, DEFAULT_TELEMETRY_DIR } from "./record.mjs";
 import { compileGlob } from "./glob.mjs";
 
 test("the flow defaults match the SPEC that validates them", () => {
@@ -83,6 +85,32 @@ test("the copied glob matcher agrees with the original", () => {
       compileGlob(pattern)(path),
       bancadaGlob(pattern)(path),
       `the copies disagree on ${pattern} against ${path}`,
+    );
+  }
+});
+
+test("the gate name bancada expects in the stream is the one this plugin writes", () => {
+  // `bancada yield` reports a gate that should have fired and did not. It can
+  // only name this plugin's gate by the name it writes, and it cannot import it,
+  // so the two spellings have to be held together from here.
+  const declared = FOREIGN_CHECKS.filter((c) => c.plugin === "bancada-flow");
+  assert.deepEqual(
+    declared.map((c) => c.name),
+    [CHECK_NAME],
+    "bancada is looking for a gate name this plugin does not write",
+  );
+});
+
+test("bancada's predicate for this plugin agrees with this plugin's own switch", () => {
+  // pauseEnabled requires flow.enabled === true. A report that expected records
+  // under a looser condition would name a Pause as never fired in a project
+  // where no Pause was ever meant to run.
+  const [declared] = FOREIGN_CHECKS.filter((c) => c.plugin === "bancada-flow");
+  for (const enabled of [true, false, undefined, "yes"]) {
+    assert.equal(
+      declared.enabled({ flow: { enabled } }),
+      pauseEnabled({ flow: { enabled, pauses: ["brief"] } }, "brief"),
+      `the two disagree when flow.enabled is ${String(enabled)}`,
     );
   }
 });

@@ -6,32 +6,15 @@
  * excludes build output and vendored dependencies without bancada needing an
  * opinion about where those live.
  *
- * The walk is a fallback for a directory that is not a git repository. It is
- * deliberately shallow in ambition: skip the usual generated directories, and
- * report that the fallback was used, so a surprising result has a visible cause.
+ * The walk is a fallback for a directory that is not a git repository, and it
+ * lives in `walk.mjs` because the green boundary needs it without needing any of
+ * this: it reaches a walk only when git has already refused to answer.
+ * Reporting which of the two answered is this module's job, so a surprising
+ * result has a visible cause.
  */
 
 import { spawnSync } from "node:child_process";
-import { readdirSync, statSync } from "node:fs";
-import { join, relative, sep } from "node:path";
-
-const SKIP_DIRS = new Set([
-  ".git",
-  "node_modules",
-  "dist",
-  "build",
-  "out",
-  "target",
-  "vendor",
-  ".venv",
-  "venv",
-  "__pycache__",
-  ".next",
-  ".nuxt",
-  ".bancada",
-]);
-
-const MAX_WALK_FILES = 20000;
+import { walkFiles } from "./walk.mjs";
 
 function fromGit(dir) {
   const r = spawnSync("git", ["-C", dir, "ls-files", "--cached", "--others", "--exclude-standard"], {
@@ -42,29 +25,6 @@ function fromGit(dir) {
   return r.stdout.split(/\r?\n/).filter(Boolean);
 }
 
-function fromWalk(dir) {
-  const out = [];
-  const stack = [dir];
-  while (stack.length > 0 && out.length < MAX_WALK_FILES) {
-    const current = stack.pop();
-    let entries;
-    try {
-      entries = readdirSync(current, { withFileTypes: true });
-    } catch {
-      continue; // an unreadable directory is skipped, not fatal
-    }
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        if (!SKIP_DIRS.has(entry.name)) stack.push(join(current, entry.name));
-        continue;
-      }
-      if (!entry.isFile()) continue;
-      out.push(relative(dir, join(current, entry.name)).split(sep).join("/"));
-    }
-  }
-  return out;
-}
-
 /**
  * Every file in the project, as forward-slash paths relative to `dir`.
  *
@@ -72,11 +32,11 @@ function fromWalk(dir) {
  * `truncated` is true when the walk hit its ceiling, which matters because a
  * truncated list makes a glob look like it matches nothing.
  */
-export function listProjectFiles(dir, { git = fromGit, walk = fromWalk } = {}) {
+export function listProjectFiles(dir, { git = fromGit, walk = walkFiles } = {}) {
   const tracked = git(dir);
   if (tracked !== null) return { files: tracked, source: "git", truncated: false };
-  const files = walk(dir);
-  return { files, source: "walk", truncated: files.length >= MAX_WALK_FILES };
+  const { files, truncated } = walk(dir);
+  return { files, source: "walk", truncated };
 }
 
 /** Directories that no glob in `settings` covers. A blind spot, not an error. */

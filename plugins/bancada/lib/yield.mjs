@@ -46,9 +46,11 @@ const DECISIONS = ["allow", "ask", "deny"];
 /**
  * Reduce records to the numbers the report is made of.
  *
- * `knownChecks` is the registry, so a check that never appears in the stream
- * can be named. Without it the report can only describe what happened, never
- * what failed to.
+ * `knownChecks` is what should have appeared, so a check that never did can be
+ * named. Without it the report can only describe what happened, never what
+ * failed to. Entries are `{ name, plugin }`, or a bare name for one of
+ * bancada's own — `plugin` is what lets the report say that silence from
+ * another plugin's gate has a second possible cause.
  */
 export function aggregate(records, knownChecks = []) {
   const totals = { allow: 0, ask: 0, deny: 0, other: 0 };
@@ -104,7 +106,9 @@ export function aggregate(records, knownChecks = []) {
   // difference. It used to need a prefix match, which was a sign the record
   // was conflating the two.
   const seenNames = new Set(perCheck.keys());
-  const neverFired = knownChecks.filter((name) => !seenNames.has(name));
+  const neverFired = knownChecks
+    .map((c) => (typeof c === "string" ? { name: c, plugin: null } : { name: c.name, plugin: c.plugin ?? null }))
+    .filter((c) => !seenNames.has(c.name));
 
   const recurring = [...denialsByHash.values()].filter((d) => d.count > 1).sort((a, b) => b.count - a.count);
 
@@ -172,8 +176,17 @@ export function formatReport(agg, { damaged = 0 } = {}) {
 
   if (agg.neverFired.length > 0) {
     out.push("Never fired");
-    for (const name of agg.neverFired) {
-      out.push(`  ${name} — registered but has not reported once. Dead weight, or never applicable here.`);
+    for (const { name, plugin } of agg.neverFired) {
+      if (plugin === null) {
+        out.push(`  ${name} — registered but has not reported once. Dead weight, or never applicable here.`);
+      } else {
+        // A gate bancada does not run. Its silence is ambiguous in a way its own
+        // gates' silence is not, and saying which of the two it is would be a
+        // guess: bancada can read the config that switched it on and the stream
+        // it did not write to, and nothing in between.
+        out.push(`  ${name} (${plugin}) — switched on in this project's config and has not reported once.`);
+        out.push(`    Either nothing has matched it yet, or ${plugin} is not installed.`);
+      }
     }
     out.push("");
   }

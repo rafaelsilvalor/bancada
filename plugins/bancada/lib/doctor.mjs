@@ -13,10 +13,19 @@
 import { compileGlobs, normalisePath } from "./glob.mjs";
 import { globSettings, loadConfig as realLoadConfig } from "./config.mjs";
 import { listProjectFiles as realListFiles, uncoveredDirs } from "./files.mjs";
+import { FOREIGN_CHECKS } from "./checks/index.mjs";
 import { t } from "./messages.mjs";
 import { reportSkills as realReportSkills } from "./skills-report.mjs";
 
-/** The gates in report order, with the path to their `enabled` flag. */
+/**
+ * The gates in report order, with the path to their `enabled` flag.
+ *
+ * The tail is the gates configured here and enforced by a different plugin. The
+ * label names which, so a project that switched one on without installing that
+ * plugin can see why nothing is happening — and the list comes from the same
+ * declaration `bancada yield` reads, so the two reports cannot end up disagreeing
+ * about which gates they can see.
+ */
 const GATES = [
   ["commit", (c) => c.gates.commit.enabled],
   ["secrets", (c) => c.gates.secrets.enabled],
@@ -24,10 +33,7 @@ const GATES = [
   ["green", (c) => c.gates.green.enabled],
   ["structure", (c) => c.gates.structure.enabled],
   ["pair", (c) => c.pair.enabled],
-  // Configured here, enforced by a different plugin. The name says which, so a
-  // project that switched it on without installing bancada-flow can see why
-  // nothing is happening.
-  ["flow (bancada-flow)", (c) => c.flow.enabled],
+  ...FOREIGN_CHECKS.map((c) => [`${c.name} (${c.plugin})`, c.enabled]),
 ];
 
 /**

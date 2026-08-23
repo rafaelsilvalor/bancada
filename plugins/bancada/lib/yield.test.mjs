@@ -106,7 +106,25 @@ test("checks are ordered by how often they applied", () => {
 
 test("a registered check that never appears is named as never fired", () => {
   const agg = aggregate([rec({ checks: [{ name: "commit", decision: "allow" }] })], ["commit", "secrets", "size"]);
-  assert.deepEqual(agg.neverFired.sort(), ["secrets", "size"]);
+  assert.deepEqual(agg.neverFired.map((c) => c.name).sort(), ["secrets", "size"]);
+});
+
+test("a gate another plugin enforces is named too, and is named as theirs", () => {
+  // The gap this closes. `bancada yield` built this list from bancada's own
+  // registry, so a Pause that was switched on and never fired was invisible to
+  // the report that exists to find exactly that.
+  const agg = aggregate([rec({ checks: [{ name: "commit", decision: "allow" }] })], [
+    "commit",
+    { name: "flow", plugin: "bancada-flow" },
+  ]);
+  assert.deepEqual(agg.neverFired, [{ name: "flow", plugin: "bancada-flow" }]);
+});
+
+test("a foreign gate that did report is not named as never fired", () => {
+  const agg = aggregate([rec({ checks: [{ name: "flow", rule: "pause-brief-ok", decision: "allow" }] })], [
+    { name: "flow", plugin: "bancada-flow" },
+  ]);
+  assert.deepEqual(agg.neverFired, []);
 });
 
 test("a rule is attributed to its gate, so the gate does not read as never fired", () => {
@@ -118,7 +136,7 @@ test("a rule is attributed to its gate, so the gate does not read as never fired
     [rec({ checks: [{ name: "commit", rule: "commit-trailer", decision: "deny" }] })],
     ["commit", "secrets"],
   );
-  assert.deepEqual(agg.neverFired, ["secrets"]);
+  assert.deepEqual(agg.neverFired, [{ name: "secrets", plugin: null }]);
   assert.equal(agg.checks[0].name, "commit");
 });
 
@@ -246,6 +264,15 @@ test("a never-fired check is named in the report", () => {
   const text = formatReport(aggregate([rec()], ["secrets"])).join("\n");
   assert.match(text, /Never fired/);
   assert.match(text, /secrets/);
+});
+
+test("a foreign gate's silence names the plugin and both of its causes", () => {
+  // bancada can read the config that switched it on and the stream it did not
+  // write to, and nothing in between. Naming one cause would be a guess.
+  const text = formatReport(aggregate([rec()], [{ name: "flow", plugin: "bancada-flow" }])).join("\n");
+  assert.match(text, /flow \(bancada-flow\)/);
+  assert.match(text, /switched on in this project's config/);
+  assert.match(text, /bancada-flow is not installed/);
 });
 
 test("the report round-trips from a raw stream", () => {

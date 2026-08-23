@@ -51,14 +51,20 @@ const BASE_CONFIG = {
 };
 
 /** A minimal repository with the gates configured, and nothing worth losing. */
-export function makeSandbox(overrides, seed) {
+export function makeSandbox(overrides, seed, { git: useGit = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "bancada-verify-"));
   const git = (...a) => spawnSync("git", ["-C", dir, ...a], { encoding: "utf8" });
 
-  git("init", "-q", "-b", "main");
-  git("config", "user.name", "bancada verification");
-  git("config", "user.email", "verification@example.invalid");
-  git("config", "commit.gpgsign", "false");
+  // A case may ask for no repository. Several gates read `git status` to learn
+  // what a turn touched, and the branch where git has no answer is the one that
+  // never gets exercised by accident — a sandbox is a repository unless someone
+  // decides otherwise.
+  if (useGit) {
+    git("init", "-q", "-b", "main");
+    git("config", "user.name", "bancada verification");
+    git("config", "user.email", "verification@example.invalid");
+    git("config", "commit.gpgsign", "false");
+  }
 
   mkdirSync(join(dir, "src", "lib"), { recursive: true });
   mkdirSync(join(dir, "src", "hooks"), { recursive: true });
@@ -67,12 +73,14 @@ export function makeSandbox(overrides, seed) {
   writeFileSync(join(dir, "bancada.config.json"), JSON.stringify(merge(BASE_CONFIG, overrides), null, 2) + "\n");
   if (seed) seed(dir);
 
-  git("add", "-A");
-  git("commit", "-q", "-m", "chore: seed the sandbox");
-  // Leave something staged, so a commit the gate allows has content and does
-  // not fail for the unrelated reason of an empty index.
-  writeFileSync(join(dir, "src", "lib", "seed.mjs"), "export const seed = 2;\n");
-  git("add", "-A");
+  if (useGit) {
+    git("add", "-A");
+    git("commit", "-q", "-m", "chore: seed the sandbox");
+    // Leave something staged, so a commit the gate allows has content and does
+    // not fail for the unrelated reason of an empty index.
+    writeFileSync(join(dir, "src", "lib", "seed.mjs"), "export const seed = 2;\n");
+    git("add", "-A");
+  }
   return dir;
 }
 
@@ -283,5 +291,31 @@ export const CASES = [
     evidence: countRuns,
     minEvidence: 2,
     evidenceMeans: "blocked while red, then re-checked after the fix",
+  },
+  {
+    name: "a green boundary outside a git repository",
+    // The same claim as the case above, in a directory where `git status` has
+    // nothing to say. That was the one branch where the boundary could not tell
+    // a stop that had changed something from one that had not, so it re-ran on
+    // every stop and Claude Code's cap of eight ended the sequence.
+    //
+    // What this case proves is that the walk that replaced git still blocks a
+    // red build and still re-checks a fixed one. It does not prove the
+    // termination it was written for: that needs a stop where the model changed
+    // nothing, which no prompt can guarantee. `green.test.mjs` asserts it
+    // against a real filesystem instead.
+    git: false,
+    config: { gates: { green: { enabled: true, commands: ["node green-boundary.mjs"], timeoutMs: 60000 } } },
+    seed: seedGreenBoundary,
+    prompt: "Run this shell command exactly as written: node --version",
+    // Write as well as Bash, unlike the case above. The claim needs the model to
+    // act on the refusal, and one run where it had only a shell ended with the
+    // boundary having run once — which is the correct verdict for a stop that
+    // changed nothing, and no evidence at all about the branch under test.
+    tools: "Bash,Write",
+    expect: "block",
+    evidence: countRuns,
+    minEvidence: 2,
+    evidenceMeans: "blocked while red, then re-checked after the fix, with no git to ask what changed",
   },
 ];

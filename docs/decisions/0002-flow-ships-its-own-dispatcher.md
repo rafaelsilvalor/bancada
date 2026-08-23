@@ -1,4 +1,4 @@
-# bancada-flow runs its own process, and duplicates four small things to do it
+# bancada-flow runs its own process, and duplicates six small things to do it
 
 Status: accepted, 2026-08-23
 
@@ -57,9 +57,12 @@ the host put it. A marketplace install does keep them as siblings — that was
 checked in the local plugin cache rather than assumed — but an install layout
 nobody documented is not a thing to build a plugin boundary on.
 
-So bancada-flow carries its own copy of four small things: the `flow` and `pair`
-defaults, the telemetry defaults, the telemetry record's key order, and the glob
-matcher.
+So bancada-flow carries its own copy of six small things: the `flow` and `pair`
+defaults, the telemetry defaults, the telemetry record's key order, the glob
+matcher, the path reconciliation, and the gate name it writes into the shared
+stream. The last two arrived after this decision was accepted, which is the
+duplication doing exactly what was expected of it: growing where the boundary
+is, and being caught by the test rather than by somebody noticing.
 
 The mitigation is the same one this project uses everywhere else: the
 duplication is not prevented, it is detected. `plugins/bancada-flow/lib/pinned.test.mjs`
@@ -82,9 +85,16 @@ bounded and visible rather than assumed away. It is still a real change: the
 stream now has two writers where the earlier decision was partly justified by
 having one.
 
-`bancada yield` names gates that never fired from bancada's own registry, so
-flow's Pauses appear in the report only once they have fired at least once. A
-Pause that is switched on and never fires is therefore invisible to the report
-that exists to find exactly that. `bancada doctor` covers half of it — it lists
-`flow (bancada-flow)` as on — but the two reports disagree about what they can
-see, and that is unresolved.
+`bancada yield` named gates that never fired from bancada's own registry, so
+flow's Pauses appeared in the report only once they had fired at least once. A
+Pause that was switched on and never fired was therefore invisible to the report
+that exists to find exactly that. `bancada doctor` covered half of it — it listed
+`flow (bancada-flow)` as on — but the two reports disagreed about what they could
+see.
+
+**Resolved, after this decision was accepted.** Both reports now read one
+declaration, `FOREIGN_CHECKS` in bancada's `lib/checks/index.mjs`, and the gate
+name became the sixth thing pinned across the boundary. It is left in this
+document rather than deleted because it was a real price of the split, paid for a
+while: the second writer on the stream was visible to the reader from the start,
+but what that writer was *supposed* to have written was not.

@@ -106,7 +106,7 @@ function run(dir, c, withPlugin) {
 
 /** One arm, in its own sandbox. */
 function attempt(c, withPlugin) {
-  const dir = makeSandbox(c.config, c.seed);
+  const dir = makeSandbox(c.config, c.seed, { git: c.git !== false });
   try {
     const result = run(dir, c, withPlugin);
     result.evidence = c.evidence ? c.evidence(dir) : null;

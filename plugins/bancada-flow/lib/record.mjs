@@ -44,6 +44,18 @@ export const RECORD_KEYS = [
 export const DEFAULT_TELEMETRY_DIR = ".bancada/telemetry";
 export const STREAM_FILE = "gates.jsonl";
 
+/**
+ * The gate name this plugin writes, for the whole plugin, with the Pause in
+ * `rule`. The report then reads "flow applied 40 times, and here is which Pause
+ * spoke", which is the question worth asking of a process nobody has proved yet.
+ *
+ * Exported because it is the name `bancada yield` looks for when it reports a
+ * gate that should have fired and did not. bancada declares its own copy in
+ * `lib/checks/index.mjs`; `pinned.test.mjs` fails if the two ever differ, which
+ * is the same trade as the other things duplicated across this boundary.
+ */
+export const CHECK_NAME = "flow";
+
 /** Truncated digest of an input; "" for anything absent, never the hash of "". */
 export function hashInput(value) {
   if (value === undefined || value === null || value === "") return "";
@@ -64,10 +76,7 @@ export function buildRecord({ input, verdict, startedAt, now, env = process.env 
     tool: input?.tool_name ?? "",
     agent: input?.agent_type ?? undefined,
     decision: verdict?.decision ?? "allow",
-    // One gate name for the whole plugin, with the Pause in `rule`. The report
-    // then reads "flow applied 40 times, and here is which Pause spoke", which
-    // is the question worth asking of a process nobody has proved yet.
-    check: "flow",
+    check: CHECK_NAME,
     rule: verdict?.rule ?? undefined,
     inputKind: typeof command === "string" && command !== "" ? "command" : "none",
     inputHash: hashInput(command),
@@ -77,7 +86,7 @@ export function buildRecord({ input, verdict, startedAt, now, env = process.env 
     // just the speaker could count refusals and never the denominator they came
     // out of, which for a process nobody has measured is the half that matters.
     checks: (verdict?.verdicts?.length ? verdict.verdicts : [verdict ?? {}]).map((v) => ({
-      name: "flow",
+      name: CHECK_NAME,
       ...(v.rule ? { rule: v.rule } : {}),
       decision: v.decision ?? "allow",
     })),

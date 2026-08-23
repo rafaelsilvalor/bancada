@@ -9,15 +9,20 @@ import { readFileSync } from "node:fs";
 import { loadConfig as realLoadConfig } from "./config.mjs";
 import { streamPath } from "./telemetry.mjs";
 import { aggregate, formatReport, parseStream } from "./yield.mjs";
-import { CHECKS } from "./checks/index.mjs";
+import { expectedChecks } from "./checks/index.mjs";
 
 export function runYield({
   projectDir = ".",
   loadConfig = realLoadConfig,
   readFile = readFileSync,
-  knownChecks = CHECKS.map((c) => c.name),
+  knownChecks = null,
 } = {}) {
   const { config } = loadConfig(projectDir);
+  // Resolved after the config is read, not in a default argument, because which
+  // checks should have appeared is partly a question about the project: a gate
+  // another plugin enforces is only expected in the stream once the config here
+  // switched it on.
+  const expected = knownChecks ?? expectedChecks(config);
   const file = streamPath(projectDir, config);
 
   if (!config.telemetry.enabled) {
@@ -54,7 +59,7 @@ export function runYield({
   }
 
   const { records, damaged } = parseStream(raw);
-  const agg = aggregate(records, knownChecks);
+  const agg = aggregate(records, expected);
 
   return {
     lines: formatReport(agg, { damaged }),

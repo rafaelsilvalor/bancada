@@ -29,6 +29,14 @@
  * of eight consecutive blocks is the backstop underneath, and `maxBlocks` is
  * there for a project whose suite is too expensive to pay for eight times.
  *
+ * **It terminates outside a git repository too, which it did not.** "Has
+ * anything changed" was git's answer alone, so where git could not answer the
+ * gate fell back on the host's cap and paid for as many as seven boundary runs
+ * that nothing had bought. `fallbackSet` walks the tree instead. That is slower
+ * than reading `git status` and the numbers are recorded next to it, because a
+ * fallback whose price is not written down is the kind of thing that gets
+ * discovered by someone waiting for it.
+ *
  * **A boundary that cannot run says so and does not block.** A missing binary is
  * a setup problem. Refusing to let the turn end because the project's test
  * command is misspelled is bancada's bug becoming the user's work stoppage.
@@ -38,6 +46,7 @@ import { spawnSync } from "node:child_process";
 import { compileGlobs, normalisePath } from "./glob.mjs";
 import { fingerprint as realFingerprint, readState as realReadState, writeState as realWriteState } from "./green-state.mjs";
 import { runCommand } from "./run.mjs";
+import { walkFiles } from "./walk.mjs";
 
 /** How many lines of a failing command's output travel back to the model. */
 const MAX_OUTPUT_LINES = 60;
@@ -114,6 +123,41 @@ export function watchedChanges(watch, changed) {
 }
 
 /**
+ * The file set a fingerprint covers when git could not say what changed.
+ *
+ * Outside a git repository the boundary knew nothing about the previous stop, so
+ * every stop inside a blocking sequence re-ran the whole boundary and the host's
+ * cap of eight consecutive blocks ended it — up to seven runs bought by nothing.
+ * A walk cannot say what *changed*, but a digest over the watched tree answers
+ * the only question the re-check has: is this the same tree as last time?
+ *
+ * git is not asked a second time. `changedFiles` already tried and failed, and
+ * `git ls-files` fails in the same directory for the same reasons, so asking
+ * would be a subprocess per turn end to be told so twice.
+ *
+ * **It is not free, and the price is the tree's size.** Walking and hashing a
+ * synthetic tree of 2 KB source files, median of 7, from
+ * `scripts/measure-green-fallback.mjs`:
+ *
+ *   200 files    33 ms      5 000 files   1 261 ms
+ *   1 000 files 177 ms     20 000 files   5 265 ms
+ *
+ * At the walk's ceiling that is five seconds per stop, and it buys not paying
+ * for as many as seven runs of the project's own test suite. Any suite worth
+ * gating on costs more than that; a `watch` list narrows both numbers together.
+ *
+ * A truncated walk is null. The subset it reached is arbitrary, so a digest over
+ * it can compare equal while a file outside it changed, which would allow a turn
+ * the boundary meant to re-check. Unknown has to keep meaning "run it again".
+ */
+export function fallbackSet(projectDir, watch, { walk = walkFiles } = {}) {
+  const { files, truncated } = walk(projectDir ?? ".");
+  if (truncated) return null;
+  if (!Array.isArray(watch) || watch.length === 0) return files;
+  return files.filter(compileGlobs(watch));
+}
+
+/**
  * Run the configured commands in order, stopping at the first failure.
  *
  * Stopping early is deliberate. A type error usually makes the test suite fail
@@ -166,19 +210,23 @@ export function checkGreen({ stopHookActive, projectDir, session, settings, deps
     ...rest
   } = deps;
 
-  const look = () => {
-    const changed = rest.changed !== undefined ? rest.changed : changedFiles(projectDir, rest);
-    return { changed, watched: watchedChanges(settings?.watch, changed) };
-  };
+  // Two different questions, and they are asked separately because the second
+  // one is not cheap. `changed` decides whether the boundary is worth running,
+  // which only git can answer. `watchedOf` is what the fingerprint covers, and
+  // outside a repository that is a tree walk and a digest — so a stop that is
+  // not inside a blocking sequence must never pay for one it will not read.
+  const look = () => (rest.changed !== undefined ? rest.changed : changedFiles(projectDir, rest));
+  const watchedOf = (files) =>
+    files === null ? fallbackSet(projectDir, settings?.watch, rest) : watchedChanges(settings?.watch, files);
 
-  let { changed, watched } = look();
+  let changed = look();
   const prior = stopHookActive === true ? readState(projectDir, session, rest) : null;
 
   if (prior) {
     // Null never equals null: an unknown fingerprint means "run it again", not
     // "nothing changed". Comparing two unknowns as equal would skip the check
     // precisely when the gate has least idea what is going on.
-    const current = fingerprint(projectDir, watched, rest);
+    const current = fingerprint(projectDir, watchedOf(changed), rest);
     if (current !== null && current === prior.fingerprint) {
       return { decision: "allow", rule: "green-no-progress", reason: null, note: null };
     }
@@ -211,11 +259,11 @@ export function checkGreen({ stopHookActive, projectDir, session, settings, deps
   // directory, a build cache — and a baseline taken beforehand would read its
   // own leavings as the model's progress on the next stop, buying an unbounded
   // sequence of re-runs.
-  ({ watched } = look());
+  changed = look();
   const blocks = result.outcome === "failed" ? (prior?.blocks ?? 0) + 1 : 0;
   writeState(
     projectDir,
-    { session: session ?? null, fingerprint: fingerprint(projectDir, watched, rest), blocks },
+    { session: session ?? null, fingerprint: fingerprint(projectDir, watchedOf(changed), rest), blocks },
     rest,
   );
 

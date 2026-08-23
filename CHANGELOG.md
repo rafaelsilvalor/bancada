@@ -327,18 +327,21 @@ all, so this case measures the model as well as the gate.
   headings translate; the validator's own strings do not, because it returns
   formatted text rather than keys. Fixing it properly means the validator
   returning `{key, params}` — a deliberate change, not a patch.
-- Whether a plugin can ship `.claude/rules/` is still established by omission
-  from the official component table, not by experiment.
+- Whether a plugin can ship `.claude/rules/` was established by omission from the
+  official component table, not by experiment. **Settled by experiment at the end
+  of this release: it cannot.**
 - Deny reasons from the four new gates are English whatever `language` says.
   They are formatted text, the same shape as the validator's strings above, and
   they get fixed by the same change.
-- The green boundary trusts `git status` to say what changed. In a directory
-  that is not a git repository it cannot tell, so it re-runs on every stop
-  inside a blocking sequence and relies on the host's cap to end it.
-- `bancada yield` names gates that never fired from bancada's own registry, so a
-  Pause that is switched on and never fires is invisible to the report that
-  exists to find exactly that. `doctor` covers half of it by listing
-  `flow (bancada-flow)`; the two reports disagree about what they can see.
+- The green boundary trusted `git status` to say what changed. In a directory that
+  is not a git repository it could not tell, so it re-ran on every stop inside a
+  blocking sequence and relied on the host's cap to end it. **Closed at the end of
+  this release.**
+- `bancada yield` named gates that never fired from bancada's own registry, so a
+  Pause that was switched on and never fired was invisible to the report that
+  exists to find exactly that. `doctor` covered half of it by listing
+  `flow (bancada-flow)`; the two reports disagreed about what they could see.
+  **Closed at the end of this release.**
 - No gate reads what is already in the repository. The secret gate judges the
   text a turn introduces, so a credential committed before bancada was installed
   is invisible to it; that is `git secrets` over history, a different job. The
@@ -529,3 +532,178 @@ case then passes.
 - This repository does not switch flow on for itself. Enabling Pause 1 here would
   require a brief per branch, which is a workflow decision rather than a
   verification, so the plugin is dogfooded through its tests and not through use.
+
+### Two gaps closed, and one settled by experiment
+
+Three entries from the "Known gaps in this release" list in the `bancada` section
+above, taken one at a time. Each is marked there as well, so the list is not left
+asserting something that has stopped being true.
+
+**The green boundary terminates outside a git repository, which it did not**
+
+`git status` was the only answer to "has anything changed since the last stop", so
+in a directory that is not a repository the boundary re-ran on every stop inside a
+blocking sequence and Claude Code's cap of eight consecutive blocks was what ended
+it — as many as seven runs of the project's own suite bought by nothing.
+
+The tree walk that `files.mjs` kept private is now `lib/walk.mjs`, and the
+boundary fingerprints the watched tree when git declines to answer. git is not
+asked twice: `git ls-files` fails in that directory for the same reason
+`git status` did, so asking again would be one more subprocess per turn end to be
+told so a second time.
+
+Slower than reading one subprocess's output, and the price is the tree's size:
+
+```
+$ node scripts/measure-green-fallback.mjs
+Green boundary fallback, median of 7
+
+files    walk ms   fingerprint ms   total ms
+  200          2               31         33
+ 1000          8              168        177
+ 5000         39             1222       1261
+20000        155             5110       5265
+
+20000 is the walk's ceiling, so the last row is the worst case, not a limit found by trying.
+```
+
+**Five seconds per stop at the ceiling**, against as many as seven runs of a suite
+worth gating on. A `watch` list narrows both numbers together, because the
+fingerprint then covers only the files the list names.
+
+- A truncated walk produces no fingerprint at all. The subset it reached is
+  arbitrary, so a digest over it can compare equal while a file outside it
+  changed, and that would allow a turn the boundary meant to re-check. Unknown
+  keeps meaning "run it again".
+- The pre-run fingerprint is asked for and not computed alongside `git status`.
+  Only a stop already inside a blocking sequence reads it, and the first version
+  of this change paid for the walk on every stop, including the ones that throw
+  the answer away.
+- The turn-end cost bucket grew from 541 lines to 660 — 22%, inside the 25%
+  tolerance, so the gate passed and nothing was ratified by it. The baseline was
+  re-recorded anyway, in its own commit: leaving it at 541 would have pushed this
+  increase into whichever commit next touched that path.
+
+**`bancada yield` and `bancada doctor` no longer disagree about what they can see**
+
+`yield` built its "never fired" list from bancada's own registry, so the one gate
+it could not see belonged to the plugin with the least evidence behind it — a
+Pause switched on and never fired was invisible to the report that exists to find
+exactly that. `doctor` listed `flow (bancada-flow)`; `yield` did not.
+
+Both now read one declaration, `FOREIGN_CHECKS` in `lib/checks/index.mjs`. On a
+project with `flow.enabled` true and one commit-gate record in the stream:
+
+```
+$ node plugins/bancada/bin/bancada.mjs doctor --dir <project>
+Gates
+  on   commit
+  on   secrets
+  off  size
+  off  green
+  off  structure
+  off  pair
+  on   flow (bancada-flow)
+
+$ node plugins/bancada/bin/bancada.mjs yield --dir <project>
+Never fired
+  secrets — registered but has not reported once. Dead weight, or never applicable here.
+  size — registered but has not reported once. Dead weight, or never applicable here.
+  structure — registered but has not reported once. Dead weight, or never applicable here.
+  pair — registered but has not reported once. Dead weight, or never applicable here.
+  green — registered but has not reported once. Dead weight, or never applicable here.
+  flow (bancada-flow) — switched on in this project's config and has not reported once.
+    Either nothing has matched it yet, or bancada-flow is not installed.
+```
+
+- A foreign gate is named only when the config switched it on. bancada's own
+  registry is complete, so silence from one of its gates has one meaning; silence
+  from another plugin's has two, and the report states both rather than choosing.
+- The gate name is the sixth thing the two plugins duplicate, after the flow and
+  pair defaults, the telemetry defaults, the record's key order, the glob matcher
+  and the path reconciliation. It is held the same way: `pinned.test.mjs` imports
+  both sides and fails on the first divergence, now including on whether
+  bancada's predicate for "switched on" agrees with flow's own `pauseEnabled`.
+- `docs/decisions/0002-flow-ships-its-own-dispatcher.md` recorded this
+  disagreement as an unresolved cost of the split. It is marked resolved there
+  rather than deleted, and its count of duplicated things — stale before this
+  change, at four — is corrected to six.
+- `runYield` had no test file. It has one now, which is how the default
+  `knownChecks` argument turned out to need resolving after the config is read
+  rather than in a default parameter.
+- `bancada yield --json` changed shape: `neverFired` is now `[{ name, plugin }]`
+  where it was `["name"]`. Nothing in this repository reads it, and a consumer
+  parsing it had no way to say which plugin owns a gate, which is the point.
+
+**A plugin cannot ship `.claude/rules/`. Run, not inferred**
+
+The claim rested on the component table not mentioning it. Run instead, on Claude
+Code v2.1.240: a rule file defining a codeword no model can guess, a prompt asking
+for it, and every file-reading tool denied so the answer cannot come from reading
+the file.
+
+```
+project .claude/rules/codeword.md      TIJOLO-4417
+plugin  rules/codeword.md              "I don't have a project codeword..."
+plugin  .claude/rules/codeword.md      "I don't see a project codeword..."
+plugin  no rules at all (control)      "I don't see a project codeword..."
+```
+
+Each plugin also carried a `SessionStart` hook that appends to a file, so **that
+the plugin loaded at all is decided by the filesystem rather than by reading a
+model's answer**. The marker appeared in all three runs: the plugins loaded, their
+rules did not.
+
+A second and independent answer, from the validator, when the manifest declares
+the directory instead of merely containing it:
+
+```
+$ claude plugin validate . --strict
+⚠ Found 1 warning:
+
+  ❯ rules: Unknown field 'rules'. Claude Code ignores it at load time.
+
+✘ Validation failed (--strict treats warnings as errors)
+```
+
+- **An undeclared `rules/` or `.claude/rules/` inside a plugin passes `--strict`
+  in silence.** Validation is not a way to discover this, which is part of why the
+  gap survived as an inference for as long as it did.
+- The consequence: writing the file into the consumer's project is the only route,
+  which is what `bancada rules` was already sketched as in the CLI's usage text.
+  It is still not implemented, and it is now the sketch of the only thing that can
+  work rather than of the cheaper of two options.
+- What this does not establish: whether a marketplace install differs from
+  `--plugin-dir`. Both plugin variants were loaded from a directory. The manifest
+  warning is install-path independent, which is the stronger of the two signals,
+  but the behavioural half was measured on one install path only.
+
+**Verified end to end** (Claude Code v2.1.240, Haiku, the full sweep)
+
+```
+ok    a green boundary outside a git repository
+        the boundary ran 3 time(s) with the plugin and 0 without — blocked while
+        red, then re-checked after the fix, with no git to ask what changed
+        turns: 7 with the plugin, 2 without (reported, not enforced)
+
+13 of 13 conclusive case(s) behaved as expected.
+Cost of this verification: $0.9924
+```
+
+`makeSandbox` grew a `git: false` option for it, because the branch where git has
+no answer is the one that never gets exercised by accident.
+
+- **This case does not prove the termination it was written for.** That needs a
+  stop where the model changed nothing, and no prompt can guarantee one. What it
+  proves is that the walk which replaced git still blocks a red build and still
+  re-checks a fixed one. `green.test.mjs` asserts the termination against a real
+  filesystem instead — a temp tree, no git, the real fingerprint.
+- One earlier run of this case ended with the boundary having run once, which is
+  the correct verdict for a stop that changed nothing and no evidence at all about
+  the branch under test. The case now offers `Write` alongside `Bash` so the model
+  has an unambiguous way to act on the refusal.
+- The first attempt at the sweep was thrown away. `green.mjs` was edited while it
+  was running and the script loads the plugin from `plugins/` live, so the run
+  measured a mixture of two versions. Killed and re-run against the final tree;
+  the wasted API cost was about $0.60. Worth recording because the failure is
+  invisible in a passing report.
