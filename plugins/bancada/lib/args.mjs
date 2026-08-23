@@ -88,8 +88,16 @@ const refuse = (error, showUsage = true) => ({ error, showUsage });
  * caller's job is to print it and choose an exit code, and because every branch
  * below is then something a test can assert on without spawning a process.
  *
- * `showUsage` is false only where the usage text would not help: a path that is
- * not a directory is a wrong value, not a mistyped invocation.
+ * `showUsage` sorts the refusals into two kinds, and the split is deliberate
+ * rather than an inconsistency left behind — "be consistent" is the obvious
+ * objection to it, and the answer is not obvious. Every refusal that prints the
+ * usage is about *how the invocation was written*: a flag that does not exist, a
+ * value that was not given, a command that was not understood. There the usage is
+ * the remedy, because it shows the correct spelling. The two that do not print it
+ * are about *the world*: the invocation was spelled correctly, and the path it
+ * named is not a directory. Usage is no remedy for that — it is a dozen lines to
+ * scroll past, and a block people learn to skip stops working in the places where
+ * it does help.
  */
 export function parseArgs(argv, { cwd = process.cwd(), dirState = realDirState } = {}) {
   const raw = argv[0] ?? "help";

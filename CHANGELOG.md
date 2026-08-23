@@ -1106,7 +1106,7 @@ fourth design commitment forbids.
   read where a command belongs; `--help` was the one place the CLI refused
   something it plainly understood.
 
-- Cost: the `cli` bucket goes from 1161 to 1311 lines against a limit of 1429, so
+- Cost: the `cli` bucket goes from 1161 to 1319 lines against a limit of 1429, so
   the recorded baseline of 1143 is unchanged. Tests go from 483 to 505 — eighteen
   in `lib/args.test.mjs` for what the reader decides, four in
   `hooks/wiring.test.mjs` for whether the decision reaches the caller, including
