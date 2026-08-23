@@ -167,3 +167,34 @@ test("an unknown language falls back to English instead of blanking the output",
 test("an unknown key renders as the key, so a gap is visible rather than blank", () => {
   assert.equal(t("en", "doctor.nope.missing"), "doctor.nope.missing");
 });
+
+// --- a layer can guard without matching a file, and the report has to say so ---
+
+/** The shape of "only adapters may require('photoshop')": the target is not a file here. */
+const ALIAS_LAYERS = [
+  { name: "app", match: "src/app/**", mayImport: ["host"] },
+  { name: "host", match: "node_modules/@never-matches/**", mayImport: [], aliases: ["photoshop", "uxp"] },
+];
+
+test("a layer that guards only by alias is not called dead", () => {
+  const r = runDoctor({
+    loadConfig: loader({ gates: { structure: { enabled: true, layers: ALIAS_LAYERS } } }),
+    listFiles: filesOf(SAMPLE),
+    env: {},
+  });
+  const out = r.lines.join("\n");
+  assert.deepEqual(r.summary.emptySettings, [], "the alias layer is guarding, so nothing is dead");
+  assert.doesNotMatch(out, /layers\[1\]\.match\s+— this setting guards nothing/);
+  assert.match(out, /gates\.structure\.layers\[1\]\.match\s+— guarding 2 bare specifier\(s\) by alias/);
+});
+
+test("a layer with neither matches nor aliases still guards nothing", () => {
+  const layers = [{ name: "host", match: "node_modules/@never-matches/**", mayImport: [] }];
+  const r = runDoctor({
+    loadConfig: loader({ gates: { structure: { enabled: true, layers } } }),
+    listFiles: filesOf(SAMPLE),
+    env: {},
+  });
+  assert.deepEqual(r.summary.emptySettings, ["gates.structure.layers[0].match"]);
+  assert.match(r.lines.join("\n"), /layers\[0\]\.match\s+— this setting guards nothing/);
+});

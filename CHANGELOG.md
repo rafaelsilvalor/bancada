@@ -986,3 +986,37 @@ fourth design commitment forbids.
 - **A separate job for `bancada check`.** One second of work behind fifteen
   seconds of runner start. It is a step in `hygiene`, which is where the other
   repository-wide invariants are.
+
+**A layer can guard without matching a file, and doctor said otherwise**
+
+- `bancada doctor` called `gates.structure.layers[i].match` dead whenever it
+  matched no file. But `targetLayer` also attributes a *bare* specifier to a
+  layer through that layer's `aliases`, so the configuration that expresses
+  "only `adapters/` may `require('photoshop')`" is a layer whose `match` is
+  deliberately unmatchable — the import target is not a file in the repository.
+  The one report that has to be worth trusting was printing a false line about a
+  rule that works.
+- The rule does work. Five cases through `checkLayering`, against that layering:
+  `require('photoshop')`, `import ps from 'photoshop'` and `require('uxp')` are
+  refused outside the adapters layer and allowed inside it — **5 of 5 behaved as
+  the rule requires**, before anything was changed. The report was the only
+  thing wrong.
+
+  ```
+  $ node plugins/bancada/bin/bancada.mjs doctor        # before
+    no matches  gates.structure.layers[2].match  — this setting guards nothing
+
+  $ node plugins/bancada/bin/bancada.mjs doctor        # after
+    no file matches  gates.structure.layers[2].match  — guarding 2 bare specifier(s) by alias
+  ```
+
+- The layer gets its own line rather than being folded into the covered count. A
+  `0 file(s)` row would be true and would still read as a glob somebody should go
+  fix, which is the same false alarm in quieter type.
+- Design commitment 4 keeps its teeth. A layer with an unmatchable `match` and no
+  `aliases` guards nothing, still warns, and still lands in
+  `summary.emptySettings`; only a layer that declares at least one alias is
+  spared. Both branches have a test, so the exemption cannot widen by accident.
+- The alias count is carried on the coverage entry rather than recomputed in
+  `doctor`, because `globSettings` is where the layer is already being read and a
+  second reader is a second thing to keep in step.

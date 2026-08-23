@@ -285,6 +285,9 @@ export function globSettings(config) {
       setting: `gates.structure.layers[${i}].match`,
       globs: [layer.match],
       kind: "include",
+      // A layer can also guard by `aliases`, which match no file by design; the
+      // coverage report needs the count to tell that apart from a dead glob.
+      aliases: (layer.aliases ?? []).length,
     });
   }
   return out.filter((e) => Array.isArray(e.globs) && e.globs.length > 0);

@@ -136,7 +136,11 @@ type-checker and your test suite.
   **Go's grouped `import ( ... )` block is not among the recognised shapes**, so
   a Go module needs `adapterCommand` rather than layers.
 - `aliases` on a layer names specifier prefixes that also mean that layer, for
-  code that imports through `@domain/` rather than a relative path.
+  code that imports through `@domain/` rather than a relative path. This is also
+  how you fence off a dependency that is not a file here at all — give the layer
+  a `match` nothing can match and the alias does the guarding, which is what
+  "only `adapters/` may `require('photoshop')`" looks like. `bancada doctor`
+  reports such a layer as guarding by alias rather than as guarding nothing.
 - `adapterCommand` runs the project's own checker — dependency-cruiser,
   import-linter, depguard — inside `bancada check` instead of reimplementing it.
   It is not run on every edit: a whole-project analyser takes seconds, and

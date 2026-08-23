@@ -91,14 +91,28 @@ export function runDoctor({
   lines.push(`  ${say("doctor.files.source", { source: fileSource, count: normalised.length })}`);
   if (truncated) lines.push(`  ${say("doctor.files.truncated")}`);
 
-  // Only an `include` that matches nothing is a finding. An `exclude` with no
-  // matches is the healthy case, and flagging it would teach people to skim
-  // the one report that has to be worth reading.
+  // Only an `include` that matches nothing is a finding, and only when nothing
+  // else in the setting is guarding. An `exclude` with no matches is the healthy
+  // case, and flagging it would teach people to skim the one report that has to
+  // be worth reading.
+  //
+  // A structure layer is the case where "matches no file" and "guards nothing"
+  // come apart. `targetLayer` attributes a bare specifier through a layer's
+  // `aliases`, so "only adapters may require('photoshop')" is written as a layer
+  // whose `match` is deliberately unmatchable — the import target is not a file
+  // in the repository. That layer guards; calling it dead was a false alarm.
+  //
+  // It gets its own line rather than being folded into the covered count: a
+  // `0 file(s)` row reads as a glob somebody should go fix, which is the same
+  // false alarm in quieter type. A layer with no aliases and no matches really
+  // does guard nothing and still warns, so the commitment keeps its teeth.
   const emptySettings = [];
-  for (const { setting, globs, kind } of globSettings(config)) {
+  for (const { setting, globs, kind, aliases = 0 } of globSettings(config)) {
     const match = compileGlobs(globs);
     const count = normalised.filter(match).length;
-    if (count === 0 && kind === "include") {
+    if (count === 0 && aliases > 0) {
+      lines.push(`  ${say("doctor.glob.aliases", { setting, aliases })}`);
+    } else if (count === 0 && kind === "include") {
       emptySettings.push(setting);
       lines.push(`  ${say("doctor.glob.empty", { setting })}`);
     } else {

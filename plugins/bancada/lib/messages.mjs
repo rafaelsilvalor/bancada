@@ -24,6 +24,8 @@ const CATALOG = {
     "doctor.globs": () => "Glob coverage",
     "doctor.glob.matches": ({ setting, count }) => `${count} file(s)  ${setting}`,
     "doctor.glob.empty": ({ setting }) => `no matches  ${setting}  — this setting guards nothing`,
+    "doctor.glob.aliases": ({ setting, aliases }) =>
+      `no file matches  ${setting}  — guarding ${aliases} bare specifier(s) by alias`,
     "doctor.files.source": ({ source, count }) =>
       source === "git"
         ? `${count} file(s) from git ls-files`
@@ -62,6 +64,8 @@ const CATALOG = {
     "doctor.globs": () => "Cobertura dos globs",
     "doctor.glob.matches": ({ setting, count }) => `${count} arquivo(s)  ${setting}`,
     "doctor.glob.empty": ({ setting }) => `nenhum match  ${setting}  — esse ajuste não guarda nada`,
+    "doctor.glob.aliases": ({ setting, aliases }) =>
+      `nenhum arquivo casa  ${setting}  — guardando ${aliases} especificador(es) por alias`,
     "doctor.files.source": ({ source, count }) =>
       source === "git"
         ? `${count} arquivo(s) via git ls-files`
