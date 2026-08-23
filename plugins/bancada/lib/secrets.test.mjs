@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { checkSecrets, DEFAULT_FAMILIES, FAMILIES, isPlaceholder, mask, scan } from "./secrets.mjs";
 
 const NL = String.fromCharCode(10);
@@ -11,6 +12,14 @@ const src = (...lines) => lines.join(NL);
  * This repository has the secret gate on. A literal `AKIA…` in this file would
  * be refused by bancada's own gate the next time anyone edited it, which is a
  * fine demonstration and a terrible way to maintain a test suite.
+ *
+ * Saying that in a comment was not enough. One fixture — a connection string
+ * with a password in it — went in whole in the same commit that wrote the
+ * comment, and nothing here was checking, so the gate would have refused an
+ * edit to its own test the first time anyone tried. It was found by asking what
+ * self-hosting would do, not by reading. The last test in this file now asks
+ * mechanically: it scans this source and fails if the default families find
+ * anything.
  */
 const AWS = "AKIA" + "JQ3XN7ZP4LMTKW2D";
 const GITHUB = "ghp_" + "0123456789abcdefghij0123456789abcdef";
@@ -56,8 +65,10 @@ test("a JSON Web Token belongs to the family a project opts into", () => {
   assert.equal(scan(`const t = "${JWT}";`, all).length, 1);
 });
 
+const DSN = "postgres://" + "svc:hunter2hunter2@" + "db.internal:5432/app";
+
 test("credentials embedded in a connection string are found", () => {
-  const found = scan('const dsn = "postgres://svc:hunter2hunter2@db.internal:5432/app";', defaults);
+  const found = scan(`const dsn = "${DSN}";`, defaults);
   assert.equal(found.length, 1);
 });
 
@@ -151,6 +162,16 @@ test("an empty or absent input is not scanned", () => {
 });
 
 // --- what it does not see, pinned so a change is deliberate ---
+
+test("this file does not trip the gate it tests", () => {
+  // The one rule a test suite about credentials has to obey about itself. Every
+  // fixture above is assembled from parts so that no literal credential exists
+  // here for the gate to find; this is what makes that a fact rather than an
+  // intention. It reads its own source, so a fixture pasted in whole fails here
+  // before it fails somebody's edit.
+  const self = readFileSync(new URL(import.meta.url), "utf8");
+  assert.deepEqual(scan(self, { builtin: DEFAULT_FAMILIES, custom: [] }), []);
+});
 
 test("a bare high-entropy string with no issuer prefix is invisible, by design", () => {
   // Stated in the module and pinned here: under-detecting is the direction this
