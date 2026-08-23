@@ -1,0 +1,36 @@
+{
+  "language": "en",
+  "source": {
+    "include": ["**/*.go"],
+    "exclude": ["**/vendor/**", "**/testdata/**", "**/*.pb.go"]
+  },
+  "gates": {
+    "commit": {
+      "enabled": true,
+      "conventional": true,
+      "maxSubject": 72,
+      "denyTrailers": []
+    },
+    "secrets": {
+      "enabled": true
+    },
+    "size": {
+      "enabled": true,
+      "maxFileLines": 500,
+      "testCeiling": 1000
+    },
+    "green": {
+      "enabled": false,
+      "commands": ["go build ./...", "go vet ./...", "go test ./..."],
+      "watch": ["**/*.go"]
+    }
+  },
+  "pair": {
+    "enabled": false,
+    "testGlobs": ["**/*_test.go"]
+  },
+  "telemetry": {
+    "enabled": true,
+    "dir": ".bancada/telemetry"
+  }
+}

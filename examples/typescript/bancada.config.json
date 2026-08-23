@@ -1,0 +1,36 @@
+{
+  "language": "en",
+  "source": {
+    "include": ["{src,app,components,lib,packages}/**/*.{ts,tsx,mts,cts}"],
+    "exclude": ["**/node_modules/**", "**/dist/**", "**/*.d.ts"]
+  },
+  "gates": {
+    "commit": {
+      "enabled": true,
+      "conventional": true,
+      "maxSubject": 72,
+      "denyTrailers": []
+    },
+    "secrets": {
+      "enabled": true
+    },
+    "size": {
+      "enabled": true,
+      "maxFileLines": 400,
+      "testCeiling": 800
+    },
+    "green": {
+      "enabled": false,
+      "commands": ["npx tsc --noEmit", "npm test"],
+      "watch": ["{src,app,components,lib,packages}/**/*.{ts,tsx,mts,cts}"]
+    }
+  },
+  "pair": {
+    "enabled": false,
+    "testGlobs": ["**/*.test.*", "**/*.spec.*", "**/__tests__/**"]
+  },
+  "telemetry": {
+    "enabled": true,
+    "dir": ".bancada/telemetry"
+  }
+}
