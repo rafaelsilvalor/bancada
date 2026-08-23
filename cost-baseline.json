@@ -1,6 +1,6 @@
 {
-  "hotPathLines": 2212,
-  "stopLines": 353,
+  "hotPathLines": 2218,
+  "stopLines": 541,
   "cliLines": 1114,
   "hotPathFiles": [
     "plugins/bancada/hooks/pre-tool-use.mjs",
@@ -29,6 +29,7 @@
     "plugins/bancada/hooks/stop.mjs",
     "plugins/bancada/lib/checks/green.mjs",
     "plugins/bancada/lib/checks/stop.mjs",
+    "plugins/bancada/lib/green-state.mjs",
     "plugins/bancada/lib/green.mjs",
     "plugins/bancada/lib/run.mjs"
   ],

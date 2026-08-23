@@ -101,7 +101,7 @@ for (const c of selected) {
   // The model does not always issue the command it was handed. A single
   // non-result is ambiguous between "the gate failed" and "the gate was never
   // reached", so it gets one retry before anything is concluded.
-  const fired = (r) => (c.expect === "block" ? r.evidence > 0 : r.denied);
+  const fired = (r) => (c.expect === "block" ? r.evidence >= (c.minEvidence ?? 1) : r.denied);
   let retried = false;
   if (c.expect !== "allow" && withP.ok && !fired(withP)) {
     const second = attempt(c, true);
@@ -119,11 +119,12 @@ for (const c of selected) {
 
   // --- the Stop-event case, read off a side effect rather than a denial ---
   if (c.expect === "block") {
-    const pass = withP.evidence > 0 && withoutP.evidence === 0;
+    const pass = fired(withP) && withoutP.evidence === 0;
     if (!pass) failures++;
     console.log(`${pass ? "ok  " : "FAIL"}  ${c.name}`);
     console.log(
-      `        the boundary ran ${withP.evidence} time(s) with the plugin and ${withoutP.evidence} without${again}`,
+      `        the boundary ran ${withP.evidence} time(s) with the plugin and ${withoutP.evidence} without` +
+        `${pass && c.evidenceMeans ? ` — ${c.evidenceMeans}` : ""}${again}`,
     );
     console.log(`        turns: ${withP.turns} with the plugin, ${withoutP.turns} without (reported, not enforced)`);
     continue;

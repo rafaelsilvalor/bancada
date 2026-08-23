@@ -13,19 +13,21 @@
  * output back in front of the model while the context that produced it is still
  * loaded.
  *
- * **It does not re-check inside one blocking sequence, so it cannot promise the
- * session ends green.** Claude Code sets `stop_hook_active` on a stop that
- * follows a block, and the documented contract is to allow while it is true.
- * Honouring it is the alternative to being overridden after eight consecutive
- * blocks, which costs eight test-suite runs and teaches nothing.
+ * **A stop inside a blocking sequence is re-checked when something changed, and
+ * only then.** Claude Code sets `stop_hook_active` on a stop that follows a
+ * block, and its documented advice is to allow while that is true. Following
+ * that literally means the model can be told its tests fail, fix them, stop
+ * again and be waved through unverified — the gate would guarantee one check per
+ * turn end rather than a green turn. So the flag is read as a question rather
+ * than an instruction: it says a block is already in progress, and `green-state`
+ * says whether anything has happened since. Unchanged means nothing could have
+ * been fixed, and the turn is allowed; changed means there is a new answer worth
+ * getting.
  *
- * The flag does not stay true forever. In an end-to-end run the boundary
- * executed twice across ten turns, so a later stop does begin a fresh sequence —
- * but what resets it is undocumented and was not measured. What this gate
- * therefore guarantees is *at least one check per turn end*, not that a red
- * build cannot get past. Re-running whenever a watched file changed since the
- * last run would make the guarantee unconditional; that needs state carried
- * between stops and is not built.
+ * That terminates on its own, because it is the model's own edits that buy each
+ * re-check: it either goes green or it stops changing files. Claude Code's cap
+ * of eight consecutive blocks is the backstop underneath, and `maxBlocks` is
+ * there for a project whose suite is too expensive to pay for eight times.
  *
  * **A boundary that cannot run says so and does not block.** A missing binary is
  * a setup problem. Refusing to let the turn end because the project's test
@@ -34,6 +36,7 @@
 
 import { spawnSync } from "node:child_process";
 import { compileGlobs, normalisePath } from "./glob.mjs";
+import { fingerprint as realFingerprint, readState as realReadState, writeState as realWriteState } from "./green-state.mjs";
 import { runCommand } from "./run.mjs";
 
 /** How many lines of a failing command's output travel back to the model. */
@@ -45,7 +48,17 @@ const MAX_OUTPUT_LINES = 60;
  * Returns null when git could not answer. Null is not "nothing changed": the
  * caller runs the boundary anyway, because a `watch` list that silently matches
  * nothing would switch the gate off without saying so.
+ *
+ * bancada's own directory is excluded, and that is not tidiness. The telemetry
+ * stream grows on every tool call and the boundary's state file is written by
+ * this very check, so a project that has not ignored `.bancada/` would see
+ * bancada's own writes in `git status`, read them as the model making progress,
+ * and re-run the test suite until the host's cap stopped it. An instrument that
+ * registers its own output as a reading is the failure this project is about.
+ * A relocated `telemetry.dir` is only covered if the project ignores it in git.
  */
+const OWN_OUTPUT = /^\.bancada\//;
+
 export function changedFiles(projectDir, { spawn = spawnSync } = {}) {
   let r;
   try {
@@ -65,7 +78,9 @@ export function changedFiles(projectDir, { spawn = spawnSync } = {}) {
     // that now exists, so that is the one a watch glob should see.
     const path = line.slice(3);
     const arrow = path.indexOf(" -> ");
-    out.push(normalisePath(arrow === -1 ? path : path.slice(arrow + 4)).replace(/^"|"$/g, ""));
+    const rel = normalisePath(arrow === -1 ? path : path.slice(arrow + 4)).replace(/^"|"$/g, "");
+    if (OWN_OUTPUT.test(rel)) continue;
+    out.push(rel);
   }
   return out;
 }
@@ -83,6 +98,19 @@ export function shouldRun(watch, changed) {
   const match = compileGlobs(watch);
   const hit = changed.find(match);
   return hit ? { run: true, why: `${hit} changed` } : { run: false, why: "no watched file changed" };
+}
+
+/**
+ * The changed files the fingerprint should cover.
+ *
+ * With a watch list, only the files on it. An edit to a README is not progress
+ * on a failing test suite, and counting it as progress would buy the model
+ * another run of the boundary for nothing.
+ */
+export function watchedChanges(watch, changed) {
+  if (!Array.isArray(changed)) return null;
+  if (!Array.isArray(watch) || watch.length === 0) return changed;
+  return changed.filter(compileGlobs(watch));
 }
 
 /**
@@ -130,22 +158,66 @@ const clip = (output) => {
  * person should see when there is no verdict to state — a boundary that could
  * not start is not a refusal, but it is not silence either.
  */
-export function checkGreen({ stopHookActive, projectDir, settings, deps = {} } = {}) {
-  if (stopHookActive === true) {
-    return { decision: "allow", rule: "green-already-blocked", reason: null, note: null };
+export function checkGreen({ stopHookActive, projectDir, session, settings, deps = {} } = {}) {
+  const {
+    fingerprint = realFingerprint,
+    readState = realReadState,
+    writeState = realWriteState,
+    ...rest
+  } = deps;
+
+  const look = () => {
+    const changed = rest.changed !== undefined ? rest.changed : changedFiles(projectDir, rest);
+    return { changed, watched: watchedChanges(settings?.watch, changed) };
+  };
+
+  let { changed, watched } = look();
+  const prior = stopHookActive === true ? readState(projectDir, session, rest) : null;
+
+  if (prior) {
+    // Null never equals null: an unknown fingerprint means "run it again", not
+    // "nothing changed". Comparing two unknowns as equal would skip the check
+    // precisely when the gate has least idea what is going on.
+    const current = fingerprint(projectDir, watched, rest);
+    if (current !== null && current === prior.fingerprint) {
+      return { decision: "allow", rule: "green-no-progress", reason: null, note: null };
+    }
+    const maxBlocks = settings?.maxBlocks ?? 0;
+    if (maxBlocks > 0 && prior.blocks >= maxBlocks) {
+      return {
+        decision: "allow",
+        rule: "green-gave-up",
+        reason: null,
+        note:
+          `bancada's green boundary has blocked ${prior.blocks} time(s) in a row and is letting\n` +
+          "the turn end. The build was still failing at the last check. Raise\n" +
+          "gates.green.maxBlocks if it should keep trying.",
+      };
+    }
   }
 
-  const changed = deps.changed !== undefined ? deps.changed : changedFiles(projectDir, deps);
-  const watch = shouldRun(settings?.watch, changed);
-  if (!watch.run) {
+  const watchVerdict = shouldRun(settings?.watch, changed);
+  if (!watchVerdict.run) {
     return { decision: "allow", rule: "green-unwatched", reason: null, note: null };
   }
 
   const result = runBoundary(settings?.commands, {
     cwd: projectDir,
     timeoutMs: settings?.timeoutMs ?? 300000,
-    ...deps,
+    ...rest,
   });
+
+  // After the run, not before: the boundary writes things — a log, a coverage
+  // directory, a build cache — and a baseline taken beforehand would read its
+  // own leavings as the model's progress on the next stop, buying an unbounded
+  // sequence of re-runs.
+  ({ watched } = look());
+  const blocks = result.outcome === "failed" ? (prior?.blocks ?? 0) + 1 : 0;
+  writeState(
+    projectDir,
+    { session: session ?? null, fingerprint: fingerprint(projectDir, watched, rest), blocks },
+    rest,
+  );
 
   if (result.outcome === "passed") {
     return { decision: "allow", rule: "green-ok", reason: null, note: null };
@@ -190,6 +262,10 @@ export function checkGreen({ stopHookActive, projectDir, settings, deps = {} } =
       ...(result.ran.length < (settings?.commands ?? []).length
         ? ["", `The remaining ${(settings?.commands ?? []).length - result.ran.length} command(s) were not run.`]
         : []),
+      // Reported, not enforced. The model cannot see how long it has been going
+      // round, and a count is the cheapest way to say "what you tried last time
+      // did not work" without bancada deciding when to give up.
+      ...(blocks > 1 ? ["", `This is the ${blocks}th consecutive block; the previous change did not fix it.`] : []),
     ].join("\n"),
   };
 }

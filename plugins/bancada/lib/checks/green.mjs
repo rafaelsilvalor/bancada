@@ -28,6 +28,10 @@ export const greenCheck = {
     const result = checkGreen({
       stopHookActive: input.stop_hook_active,
       projectDir: projectDirOf(input),
+      // The session scopes the state the boundary carries between stops. Two
+      // sessions in one checkout must not read each other's fingerprints; the
+      // failure mode of trusting a stranger's is skipping the check.
+      session: input.session_id ?? null,
       settings: config.gates.green,
     });
     return {

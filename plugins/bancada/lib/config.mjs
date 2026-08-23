@@ -64,6 +64,12 @@ export const SPEC = {
       // timeout in hooks.json is the hard bound above it; a value larger than
       // that one is capped by the host rather than by bancada.
       timeoutMs: { type: "number", default: 300000 },
+      // How many times in a row the boundary may block one turn from ending.
+      // Zero defers to Claude Code, which overrides a hook after eight
+      // consecutive blocks — a real number that already exists, rather than a
+      // second one invented here. A project whose suite is too expensive to run
+      // eight times sets its own.
+      maxBlocks: { type: "number", default: 0 },
     },
     secrets: {
       enabled: { type: "boolean", default: true },

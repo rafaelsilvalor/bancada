@@ -12,10 +12,11 @@ telemetry to tell you whether the enforcement is worth what it costs.
 
 > **Status: early. v0.1.0, Phase 7 of 10.**
 > Six gates exist — commit messages, secrets, file size, layering, the test/code
-> pair, and a green boundary on `Stop`. Five are verified refusing real input
-> inside a real session; the pair gate is verified on its own run and came back
-> unattributable in the sweep. The context plugin ships a probe, a skill factory
-> and a listing-budget meter. Nothing is installable from a marketplace yet. See
+> pair, and a green boundary on `Stop` that re-checks until the turn is actually
+> green. Five are verified refusing real input inside a real session; the pair
+> gate is verified on its own run and came back unattributable in the sweep. The
+> context plugin ships a probe, a skill factory and a listing-budget meter.
+> Nothing is installable from a marketplace yet. See
 > [Project status](#project-status) for exactly what exists.
 
 ## Why it exists
@@ -106,6 +107,7 @@ Ten phases. This repository is at the end of the sixth.
 | 5b | `/bancada:structure` and the external-tool adapter | **done** |
 | 6 | `bancada-context`: probe, skill factory, budget meter | **done** |
 | 7 | Remaining gates: green boundary, secrets, size, test/code pair | **done** |
+| 7b | The green boundary re-checks instead of standing down | **done** |
 | 8 | `bancada-flow` | next |
 | 9 | Docs, examples, public v0.1.0 release | |
 | 10 | Full CI | |

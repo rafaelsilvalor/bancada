@@ -76,13 +76,22 @@ export function makeSandbox(overrides, seed) {
   return dir;
 }
 
-/** A boundary command that always fails, and records that it ran. */
+/**
+ * A boundary that fails until the model does one specific thing.
+ *
+ * Fixable on purpose. An always-red boundary proves only that the command ran;
+ * this one distinguishes the two states that matter — blocked while broken,
+ * allowed once fixed — and the count of runs it leaves behind says which
+ * happened. The instruction reaches the model only through bancada's refusal,
+ * never through the prompt, so a second run is evidence the block landed.
+ */
 function seedGreenBoundary(dir) {
   writeFileSync(
     join(dir, "green-boundary.mjs"),
-    'import { appendFileSync } from "node:fs";\n' +
+    'import { appendFileSync, existsSync } from "node:fs";\n' +
       'appendFileSync("green-runs.log", "ran\\n");\n' +
-      'process.stderr.write("the sandbox boundary always fails\\n");\n' +
+      'if (existsSync("GREEN")) process.exit(0);\n' +
+      'process.stderr.write("the build is red: it stays red until a file named GREEN exists in the project root\\n");\n' +
       "process.exit(1);\n",
   );
 }
@@ -102,6 +111,8 @@ export const SANDBOX_ARTEFACTS = [
   "src/lib/long.mjs",
   "src/lib/order.test.mjs",
   "green-runs.log",
+  "green-boundary.mjs",
+  "GREEN",
 ];
 
 export const CASES = [
@@ -192,20 +203,19 @@ export const CASES = [
     refusedMatches: /order\.test\.mjs/,
   },
   {
-    name: "a green boundary that fails when the turn ends",
-    // Not a refusal: Stop has no permission to deny. What is verified here is
-    // the wiring — that a plugin-supplied Stop hook fires at all, that
-    // ${CLAUDE_PLUGIN_ROOT} resolves for it, and that the configured command
-    // runs in the project directory. Whether a failing boundary blocks is held
-    // by the unit tests; the turn count the harness prints is supporting
-    // evidence, not the criterion, and it is worth reading — the arm with the
-    // plugin has run five times as many turns, which is what being told to fix
-    // a build looks like from outside.
+    name: "a green boundary blocking, then passing once it is fixed",
+    // Not a refusal: Stop has no permission to deny, so this is read off a side
+    // effect instead. Two runs is the whole claim. One would only prove the
+    // Stop hook fired; two means the first blocked, the model acted on a reason
+    // it could have got nowhere else, and the boundary was re-checked on the
+    // next stop rather than waved through on `stop_hook_active`.
     config: { gates: { green: { enabled: true, commands: ["node green-boundary.mjs"], timeoutMs: 60000 } } },
     seed: seedGreenBoundary,
     prompt: "Run this shell command exactly as written: git status --short",
     tools: "Bash",
     expect: "block",
     evidence: countRuns,
+    minEvidence: 2,
+    evidenceMeans: "blocked while red, then re-checked after the fix",
   },
 ];

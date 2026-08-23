@@ -249,11 +249,77 @@ Cost of this verification: $0.7883
   above, where the control arm refused the same write for a reason that is not
   bancada's. One conclusive run is what exists; the flakiness is in the
   attribution, not in the gate.
-- The green boundary corrected something written into its own module. The design
-  honours `stop_hook_active` and the comment claimed that meant blocking once per
-  session. It ran twice across ten turns, so a later stop starts a fresh
-  sequence. What the gate guarantees is one check per turn end, not that the
-  session cannot end red; the comment now says so.
+- The green boundary corrected something written into its own module, and then
+  the correction changed the design. The comment claimed that honouring
+  `stop_hook_active` meant blocking once per session; the boundary ran twice
+  across ten turns, so a later stop starts a fresh sequence. Writing down what
+  the gate therefore guaranteed — one check per turn end, not a green turn — is
+  what made the gap impossible to leave alone. Phase 7b closes it.
+
+**Phase 7b - the green boundary re-checks instead of standing down**
+
+- `lib/green-state.mjs`: the one fact a single stop cannot supply — has anything
+  changed since the boundary last ran. With it, `stop_hook_active` is read as a
+  question rather than an instruction. It says a block is already in progress;
+  the fingerprint says whether the model has done anything since. Unchanged
+  means nothing could have been fixed and the turn is allowed. Changed means
+  there is a new answer worth getting, and the boundary runs again.
+- That closes the hole the phase 7 verification exposed: the model was told its
+  tests failed, fixed them, stopped again, and was waved through unverified. The
+  gate now answers "the turn ended green" rather than "the turn was checked once".
+- It terminates on its own, because it is the model's own edits that buy each
+  re-check: it either goes green or it stops changing files. `gates.green.maxBlocks`
+  is there for a project whose suite is too expensive to run repeatedly, and
+  defaults to 0 — defer to Claude Code, which overrides a hook after eight
+  consecutive blocks. That number already exists and was read off the binary;
+  inventing a second one here would be the failure `check-cost.mjs` exists to
+  remember.
+- **The fingerprint is taken after the boundary runs, not before.** A test suite
+  writes a log, a coverage directory, a build cache. Taken beforehand, the next
+  stop would read the boundary's own leavings as the model's progress, buy
+  another run, and never stop buying them.
+- For the same reason `.bancada/` is excluded from the changed-file set. The
+  telemetry stream grows on every tool call and the state file is written by this
+  very check, so a project that had not ignored that directory would have seen
+  bancada's own writes in `git status` and re-run its test suite until the host
+  intervened. Found while designing the verification case, not while running it.
+- Contents are hashed rather than timestamps compared. A false negative here
+  skips the check, which is the direction that costs something.
+- State is scoped to the session and discarded when it belongs to another one.
+  Two sessions in one checkout would otherwise read each other's fingerprints,
+  and the failure mode of trusting a stranger's is skipping a check.
+
+**Verified against a real working tree** (no API; the Stop hook driven through a
+whole blocking sequence)
+
+```
+  1. first stop, build red                       ran 1, BLOCKED
+  2. stop again, nothing changed                 ran 0, allowed
+  3. stop after an edit that does not fix it     ran 1, BLOCKED
+  4. stop after the edit that fixes it           ran 1, allowed
+  5. a later stop, still green                   ran 1, allowed
+  6. red again, a fresh sequence                 ran 1, BLOCKED
+  7. a different session's stop                  ran 1, BLOCKED
+```
+
+Step 4 is the one that used to pass unchecked. Step 2 is what keeps step 4 from
+becoming a loop.
+
+**Verified end to end** (Claude Code v2.1.240, Haiku)
+
+```
+ok    a green boundary blocking, then passing once it is fixed
+        the boundary ran 2 time(s) with the plugin and 0 without — blocked while
+        red, then re-checked after the fix (took a second attempt; the model did
+        not issue it the first time)
+        turns: 6 with the plugin, 2 without (reported, not enforced)
+```
+
+The sandbox boundary is fixable on purpose, and the instruction for fixing it
+reaches the model only through bancada's refusal. Two runs therefore means the
+block landed and the re-check happened; one would have meant only that the hook
+fired. It took two attempts: on the first the model did not act on the reason at
+all, so this case measures the model as well as the gate.
 
 **Known gaps in this release**
 
@@ -266,9 +332,9 @@ Cost of this verification: $0.7883
 - Deny reasons from the four new gates are English whatever `language` says.
   They are formatted text, the same shape as the validator's strings above, and
   they get fixed by the same change.
-- The green boundary re-runs on a later stop but not inside a blocking sequence,
-  so a session can still end red. The fix — re-running when a watched file
-  changed since the last run — needs state carried between stops.
+- The green boundary trusts `git status` to say what changed. In a directory
+  that is not a git repository it cannot tell, so it re-runs on every stop
+  inside a blocking sequence and relies on the host's cap to end it.
 - No gate reads what is already in the repository. The secret gate judges the
   text a turn introduces, so a credential committed before bancada was installed
   is invisible to it; that is `git secrets` over history, a different job. The

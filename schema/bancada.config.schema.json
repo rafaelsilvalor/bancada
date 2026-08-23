@@ -100,6 +100,10 @@
             "timeoutMs": {
               "type": "number",
               "default": 300000
+            },
+            "maxBlocks": {
+              "type": "number",
+              "default": 0
             }
           }
         },
