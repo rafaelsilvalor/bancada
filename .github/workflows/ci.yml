@@ -56,9 +56,10 @@ jobs:
         with:
           node-version: '22'
 
-      # A5: bancada must not introduce a rule-ID scheme that a consumer would
-      # inherit. A citation like "R14" means nothing outside the repo that
-      # defined it, so the product cites concepts by name instead.
+      # No rule-identifier scheme, one of the design commitments in README.md:
+      # bancada must not introduce one that a consumer would inherit, because a
+      # citation like "R14" means nothing outside the repo that defined it. The
+      # product cites concepts by name instead.
       - name: No inherited rule identifiers in prose
         run: node scripts/check-no-rule-ids.mjs
 
@@ -69,9 +70,17 @@ jobs:
       - name: Cost against the recorded baseline
         run: node scripts/check-cost.mjs
 
-      # The JSON Schema an editor autocompletes against and the SPEC the gates
-      # enforce must be the same thing. Two hand-written copies drift, and the
-      # drift is invisible until an editor says a setting is fine and the
-      # validator says it is not.
-      - name: Config schema matches the SPEC
+      # The JSON Schema an editor autocompletes against, the settings table
+      # people read in docs/configuration.md, and the SPEC the gates enforce
+      # must be the same thing. Hand-written copies drift, and the drift is
+      # invisible until an editor says a setting is fine and the validator says
+      # it is not, or until a documented default is not the default.
+      - name: Config schema and settings table match the SPEC
         run: node scripts/gen-schema.mjs --check
+
+      # An example config is documentation people copy without reading. A knob
+      # renamed in the SPEC turns every example that sets it into an unknown
+      # key, silently ignored, and the gate the reader thinks they switched on
+      # is not running.
+      - name: Example configs validate against the SPEC
+        run: node scripts/check-docs.mjs

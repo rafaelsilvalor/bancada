@@ -10,15 +10,16 @@ That is the whole design. An instruction in `CLAUDE.md` is a request. A hook tha
 denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
-> **Status: early. v0.1.0, Phase 8 of 10.**
+> **Status: early. v0.1.0, Phase 9 of 10.**
 > Six gates exist in the core — commit messages, secrets, file size, layering,
 > the test/code pair, and a green boundary on `Stop` that re-checks until the
 > turn is actually green. The flow plugin adds three Pauses, a brief format with
 > a validator and four agent roles, and ships disabled. Every gate has been
 > verified refusing real input inside a real session, bar one caveat each for the
 > pair gate and the Pauses, both recorded in the CHANGELOG. The context plugin
-> ships a probe, a skill factory and a listing-budget meter. Nothing is
-> installable from a marketplace yet. See
+> ships a probe, a skill factory and a listing-budget meter. Four starting
+> configs live in [`examples/`](examples/), each one's globs counted against real
+> repositories of that stack before it was written. See
 > [Project status](#project-status) for exactly what exists.
 
 ## Why it exists
@@ -96,7 +97,7 @@ These are constraints on the project, checked in CI where a machine can check th
 
 ## Project status
 
-Ten phases. This repository is at the end of the sixth.
+Ten phases. This repository is at the end of the ninth.
 
 | Phase | What it delivers | State |
 | --- | --- | --- |
@@ -111,20 +112,48 @@ Ten phases. This repository is at the end of the sixth.
 | 7 | Remaining gates: green boundary, secrets, size, test/code pair | **done** |
 | 7b | The green boundary re-checks instead of standing down | **done** |
 | 8 | `bancada-flow`: the three Pauses, the brief, four roles | **done** |
-| 9 | Docs, examples, public v0.1.0 release | next |
-| 10 | Full CI | |
+| 9 | Docs, examples, public v0.1.0 release | docs and examples **done**; the release is not cut |
+| 10 | Full CI | next |
 
-## Try it locally
+## Getting started
 
-Nothing is published yet, so load it from disk:
+**1. Load the plugin.** From a clone, which is the path every end-to-end
+verification in the CHANGELOG used:
 
 ```bash
 claude --plugin-dir ./plugins/bancada
 ```
 
-Then ask Claude to run a commit with a message the gate should refuse. The hook
-fires on Claude's tool calls, not on what you type in your own shell, so the
-request has to go through Claude:
+Once this repository is published, the marketplace path is
+`claude plugin marketplace add <owner>/bancada` followed by
+`claude plugin install bancada`. That path is written from the CLI's own help
+and has not been run — there is no published repository to run it against yet.
+
+**2. Copy a starting config** into the root of the project you want guarded, and
+change nothing yet:
+
+```bash
+cp examples/python/bancada.config.json ./bancada.config.json
+```
+
+[`examples/`](examples/) has four: `minimal`, `typescript`, `python` and `go`.
+Every glob in them was counted against real repositories of that stack, and each
+example records the counts and the commit that produced them.
+
+**3. Ask what is actually running.** This is the report the whole project is
+built around, and the line to look for is a setting that guards nothing:
+
+```bash
+./plugins/bancada/bin/bancada doctor
+```
+
+A plugin cannot put a command on your `PATH`, so the CLI is a script inside the
+plugin directory — `bancada` on a shell, `bancada.cmd` on Windows, both two
+lines that hand off to `bancada.mjs`. Alias it if you will run it often; the
+rest of these docs write it as plain `bancada`.
+
+**4. Watch a gate refuse something.** The hook fires on Claude's tool calls, not
+on what you type in your own shell, so the request has to go through Claude:
 
 > Run this in the shell exactly as written, without correcting the message:
 > `git commit -m "adding a thing"`
@@ -147,12 +176,26 @@ claude plugin validate . --strict
 plugins/bancada/                  the engine
 plugins/bancada-context/          context discipline
 plugins/bancada-flow/             opinionated process, disabled by default
-schema/                           JSON Schema for bancada.config.json
+schema/                           JSON Schema for bancada.config.json, generated from the SPEC
 scripts/                          CI hygiene and cost checks
+docs/configuration.md             every setting, and what each gate refuses, asks about or cannot see
 docs/decisions/                   architecture decisions, with the measurements behind them
 docs/briefs/                      one brief per branch, when bancada-flow is on
-examples/                         starting configs per stack
+examples/                         starting configs per stack, each counted against a real repository
 ```
+
+## Documentation
+
+- [Configuration](docs/configuration.md) — every setting with its default, and
+  per gate: what it refuses, when it asks instead, and what it cannot see.
+- [Examples](examples/) — four starting configs, with the file counts each glob
+  produced on the repositories they were measured against.
+- [Decisions](docs/decisions/) — why there is one dispatcher per event, and why
+  bancada-flow runs its own. Both carry the measurement that settled them.
+- [CHANGELOG](CHANGELOG.md) — what each phase delivered, what it measured, and
+  what it explicitly left undone.
+- [Releasing](docs/releasing.md) — the four places a version lives, and which
+  parts of publishing have never been run.
 
 ## License
 
