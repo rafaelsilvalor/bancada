@@ -514,6 +514,12 @@ no answer is the one that never gets exercised by accident.
   size gate has the same shape and, unlike layering, has no `bancada check`
   sweep to answer "how many files are already over" before the ceiling is
   chosen.
+- bancada-flow's three Pauses judge a write tool and nothing else. bancada's
+  own write gates read a shell command's heredoc as a write; the Pauses do not,
+  so a file written with `cat > file` is out of scope for Pause 1 and Pause 2
+  however the branch's brief reads. Same defect, in the plugin with the least
+  evidence behind it, left open because closing it duplicates a 279-line module
+  across the plugin boundary.
 - **No minimum Node version is declared, so none is tested.** The hooks run in
   whatever `node` the host resolves, and this repository never says which
   versions that may be: there is no `engines` field and no statement in the docs.
@@ -543,6 +549,165 @@ with `--plugin-dir`)
   "stdout/stderr not shown", which left it unclear whether the structured
   verdict would be read at all. It is. A message the gate cannot read escalates
   to the owner instead of being approved in silence.
+
+**Three write gates were walked around by writing the file with a heredoc**
+
+- `gates.structure`, `gates.size` and `pair` accepted only the write tools, so
+  the same violation was refused through `Write` and allowed through
+  `cat > file <<'EOF'`. Six pairs — one intent expressed twice — through the real
+  `PreToolUse` entry point in a throwaway repository,
+  `scripts/measure-shell-writes.mjs`:
+
+  ```
+  gate      write tool  shell   intent                                     before / after
+  structure deny        deny    a lib file gains an import from hooks         allow / deny
+  structure deny        allow   the same import, appended by a redirect       allow / allow
+  structure deny        allow   the same import, inserted by sed              allow / allow
+  size      deny        deny    a 400-line file against a 300-line ceiling    allow / deny
+  pair      deny        deny    the code role writing a test file             allow / deny
+  secrets   deny        deny    a credential in a file (the control)          deny  / deny
+
+  5 of 6 refused by the write route and allowed by the shell route, before.
+  2 of 6, after — and both of those now carry structure-unreadable in the stream.
+  ```
+
+- The control row is what shows this was about the route rather than the gates:
+  `gates.secrets` refused both arms all along, because it was the only write
+  check reading a command line. `doctor` printed `on structure`, `on size`
+  regardless, which is a claim about coverage the gates did not have.
+
+- **This came out of the first yield data this project has had outside a test.**
+  91 records from a real working session: 91 of 91 `allow`, 86 of 91 `Bash`, and
+  **not one write-tool record** in a session that created two files and edited
+  three. It wrote everything through the shell. Four of the six gates never
+  fired, and three of those four could not have.
+
+**What the split between the three verdicts rests on, since all three were defensible**
+
+The population divides, so the answer divides with it, and each half follows a
+rule this repository had already written down.
+
+- **Text on the command line is judged.** A heredoc with a quoted delimiter, or
+  PowerShell's here-string piped into `Set-Content`, carries both the path and
+  the contents. `commit-message.mjs` already extracts a heredoc for
+  `git commit -F -` on exactly that reasoning; this points the mechanism at
+  three more gates, and the refusal is the same text a write tool would have
+  earned.
+- **Text that cannot be known is recorded, not escalated.** `sed -i`, a redirect
+  fed by another program, `cp`. The commit gate answers `ask` when it cannot read
+  a message, and that is right for a commit: discrete, rare, consequential. A
+  write is none of those — 86 of 91 records were shell calls — and `size-unknown`
+  had already decided this same question the other way: *the gate did not look,
+  which is a different fact from finding nothing, and the telemetry records which
+  one happened so a coverage gap shows up in `bancada yield`.* An `ask` per
+  unreadable shell write is the friction-rather-than-feedback failure the yield
+  report exists to detect. So the gap gets a rule name — `structure-unreadable`,
+  `size-unknown` — and becomes countable.
+- **`pair` has no unreadable case at all.** Its verdict needs the path and not
+  the text, so `sed -i` on a test file from the code role is refused as surely as
+  `Edit` on one. It is also the gate that could never have a sweep behind it:
+  which role wrote a line is not a fact the repository keeps.
+
+`bancada doctor` grew a **Write routes** section, printed whenever one of the
+three is on, because `on structure` on its own was the report this whole project
+is built around saying less than it looked.
+
+**The instrument named the wrong file, and the recorded rule is what caught it**
+
+The first pass split an in-place edit's arguments on whitespace and stopped at
+the first `;`. A sed script contains one:
+
+```
+sed -i '1i import { entry } from "../hooks/entry.mjs";' src/lib/seed.mjs
+```
+
+so the last word was `../hooks/entry.mjs` and the gate judged **a file the
+command does not touch**. It reported `structure-outside` where the truth was
+`structure-unreadable` — a wrong answer wearing the shape of a right one, and
+invisible in the pass/fail column, which said `allow` either way. It was found by
+printing the rule the stream recorded next to the decision. `argumentsOf` tracks
+quote state for that one reason, and a path containing whitespace is now not read
+at all rather than read as two.
+
+- `lib/shell-writes.mjs` lists every shape it does not read, and **each entry has
+  a test asserting no target rather than a wrong one**. A list of limitations
+  that nothing checks is a list that quietly stops being true.
+- Narrowed on the same grounds: `New-Item` and `install` were dropped from the
+  patterns, and a PowerShell cmdlet's path has to be the first argument or follow
+  `-Path`. Left wide, they read `-ItemType Directory` as a write to `Directory`
+  and `Set-Content -Encoding utf8` as a write to `utf8`.
+
+**Measured**
+
+- Hot path 2260 to 2674 lines against a limit of 2822 — 18%, inside the 25%
+  tolerance, so the gate passed and ratified nothing. The baseline is re-recorded
+  anyway, in its own commit, for the reason phase 8b re-recorded the turn-end
+  bucket: leaving it would push this increase into whichever commit next touches
+  the hot path. The `cli` bucket goes 1319 to 1355 against 1429, from the doctor
+  section and its strings.
+- Tests 505 to 559. `lib/shell-writes.mjs` is 279 lines against this project's
+  own 300-line ceiling, which leaves 21.
+- No new dependency, no new hook, no new event. The three checks read one more
+  function; the dispatcher gained `foldOwn`, which is `fold` for the several
+  files one tool call can write.
+
+**Not closed, and not pretended to be**
+
+- **No real session.** Every other gate change in this file carries an end-to-end
+  verification through `claude -p`. This one has the real entry point spawned
+  with real payloads, and the wiring tests do the same on every push — but a
+  session deciding to write with a heredoc and being refused has not been
+  observed. That is a run of `verify-hooks.yml`, about $1.00, and the owner's to
+  spend.
+- **The 91 records cannot say how common each shape is.** Design commitment 3
+  hashes inputs and never records content, so the stream that proved the gap
+  exists cannot say whether the shell writes in it were heredocs, redirects or
+  `sed`. Whether the judged half or the recorded-gap half is the larger one is
+  unmeasured.
+- **`gates.size` still has no net.** `bancada check` sweeps for a layering
+  violation that arrived unseen — shown in the measurement above, exit 1 on the
+  file the shell wrote — and nothing anywhere answers "which files are over the
+  ceiling". What the size gate misses at the hook is missed for good.
+- **bancada-flow's Pauses have the identical blindness**, and are untouched.
+  Pause 1 and Pause 2 read a private `WRITE_TOOLS` set in
+  `plugins/bancada-flow/lib/pauses.mjs`. Closing it there means a seventh thing
+  duplicated across the plugin boundary, and a 279-line module is not a fifth
+  small copy — that is a decision about
+  `docs/decisions/0002-flow-ships-its-own-dispatcher.md`, not a patch.
+- A `>` inside a quoted string is read as a redirect, so a command echoing the
+  text `see > src/lib/a.mjs` names that file with unknown contents. It allows and
+  inflates the gap count; it cannot refuse, because a heredoc's destination is
+  the last redirect on the line.
+
+**A replacement string was read as a pattern, and refused a file it had inflated**
+
+Found by being refused. An edit to `lib/writes.mjs` whose replacement text
+contained a dollar-sign sequence was reported as **545 lines for a file that
+would have been 157**, by this repository's own size gate, on a legitimate
+change.
+
+`resultingText` applied an edit with `text.replace(old, new)`. `String.replace`
+reads a dollar sequence in a *replacement string* as a reference to the match, so
+the everything-before-the-match sequence expanded to the 148 lines above it. The
+gate then applied the ceiling to a file the edit would never have written.
+
+```
+current                  a b c d              4 lines
+replacement              the before-match sequence
+computed, before         a b a b   d          6 lines
+computed, after          a b <sequence> d     4 lines
+```
+
+- It goes both ways. A sequence standing for the matched text or for a capture
+  group shrinks the computed file, so the gate can approve a write that breaks
+  the ceiling as easily as refuse one that does not.
+- **The `replace_all` branch was already correct**, because `Array.join`
+  interprets nothing. One function, two branches, and the one with the harder
+  arithmetic was the right one — which is why this survived every test.
+- The fix is a replacer function. The fix's own comment contains the sequences,
+  so the buggy gate refused the fix; it went in through a whole-file write, which
+  is the path `resultingText` answers outright. Both branches are now asserted to
+  agree.
 
 ### bancada-context
 

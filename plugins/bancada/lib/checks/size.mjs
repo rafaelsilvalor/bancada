@@ -12,13 +12,24 @@
  * cannot be read yields no verdict: the check abstains under its own rule name,
  * so `bancada yield` shows how often it could not look instead of implying it
  * always could.
+ *
+ * The same abstention now covers the shell route. `cat > big.mjs <<'EOF'` hands
+ * over the whole resulting file and is judged exactly as `Write` is — it was
+ * not, before this, and a 400-line file walked past a 300-line ceiling by being
+ * written with a heredoc. `sed -i` names the file and not its contents, so it
+ * stays `size-unknown`. **There is no sweep behind this one.** `bancada check`
+ * catches a layering violation that arrived unseen; nothing anywhere answers
+ * "which files are over the ceiling", so what this check does not see at the
+ * hook is not seen later either.
  */
 
 import { readFileSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 import { checkSize } from "../size.mjs";
-import { isWrite, resultingText } from "../writes.mjs";
-import { inSource, projectDirOf, relativeTarget } from "./where.mjs";
+import { foldOwn } from "../dispatch.mjs";
+import { targetResult, writeTargets } from "../writes.mjs";
+import { inSource, projectDirOf } from "./where.mjs";
+import { toProjectRelative } from "../structure.mjs";
 
 export const sizeCheck = {
   name: "size",
@@ -32,36 +43,43 @@ export const sizeCheck = {
   // catching, and `.env` is in nobody's source globs.
   applies(input, config) {
     if (!config.gates.size.enabled) return false;
-    if (!isWrite(input)) return false;
-    return inSource(relativeTarget(input), config);
+    const projectDir = projectDirOf(input);
+    return writeTargets(input).some((t) => inSource(toProjectRelative(t.path, projectDir), config));
   },
 
   run(input, config, { readFile = readFileSync } = {}) {
-    const given = input.tool_input.file_path;
-    const absolute = isAbsolute(given) ? given : join(projectDirOf(input), given);
+    const projectDir = projectDirOf(input);
 
-    // A file that does not exist yet reads as null, not as an error: a new file
-    // has no previous size, which is a fact rather than a failure.
-    let current = null;
-    try {
-      current = readFile(absolute, "utf8");
-    } catch {
-      current = null;
-    }
+    const verdicts = writeTargets(input)
+      .map((target) => {
+        const rel = toProjectRelative(target.path, projectDir);
+        // A command line can write several files at once, only some of them
+        // source. The ones that are not are this check's business in no way at
+        // all, so they produce no verdict rather than an abstention.
+        if (!inSource(rel, config)) return null;
 
-    const result = checkSize(
-      relativeTarget(input),
-      resultingText(input.tool_input, current),
-      current,
-      config.gates.size,
-      config.pair.testGlobs,
-    );
+        const absolute = isAbsolute(target.path) ? target.path : join(projectDir, target.path);
 
-    return {
-      decision: result.decision,
-      check: sizeCheck.name,
-      rule: result.rule,
-      reason: result.reason,
-    };
+        // A file that does not exist yet reads as null, not as an error: a new
+        // file has no previous size, which is a fact rather than a failure.
+        let current = null;
+        try {
+          current = readFile(absolute, "utf8");
+        } catch {
+          current = null;
+        }
+
+        const result = checkSize(
+          rel,
+          targetResult(target, current),
+          current,
+          config.gates.size,
+          config.pair.testGlobs,
+        );
+        return { decision: result.decision, check: sizeCheck.name, rule: result.rule, reason: result.reason };
+      })
+      .filter(Boolean);
+
+    return foldOwn(sizeCheck.name, verdicts);
   },
 };

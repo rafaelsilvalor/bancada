@@ -83,6 +83,27 @@ export function runDoctor({
   if (!anyOn) lines.push(`  ${say("doctor.nogates")}`);
   lines.push("");
 
+  // --- which routes the write gates actually reach ---
+  //
+  // `on structure` was the whole of what this report said, and it was measured
+  // meaning less than it looks: before the shell route was read, 5 of 6 paired
+  // payloads were refused through a write tool and allowed through
+  // `cat > file <<'EOF'`. The gates read both routes now, and one gap is left —
+  // text a command line does not carry. A report that leaves that implied is the
+  // failure this command exists to prevent, so it is a section rather than a
+  // footnote, and it is printed only when a gate it describes is on.
+  const writeGates = config.gates.size.enabled || config.gates.structure.enabled || config.pair.enabled;
+  if (writeGates) {
+    lines.push(say("doctor.routes"));
+    lines.push(`  ${say("doctor.routes.judged")}`);
+    if (config.gates.size.enabled || config.gates.structure.enabled) {
+      lines.push(`  ${say("doctor.routes.unseen")}`);
+      lines.push(`  ${say("doctor.routes.counted")}`);
+    }
+    if (config.pair.enabled) lines.push(`  ${say("doctor.routes.pair")}`);
+    lines.push("");
+  }
+
   // --- coverage ---
   const { files, source: fileSource, truncated } = listFiles(projectDir);
   const normalised = files.map(normalisePath);

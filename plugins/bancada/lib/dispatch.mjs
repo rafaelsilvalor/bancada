@@ -60,6 +60,22 @@ export function fold(verdicts) {
 }
 
 /**
+ * One check's verdict on the several files a single tool call writes.
+ *
+ * `fold` above combines different checks, so it joins their names; here every
+ * verdict comes from the same check and the name is given rather than joined.
+ * The rules are still joined, because "which of my rules fired" is exactly what
+ * a report of one gate over three files needs to say.
+ *
+ * A check with no target to judge returns allow with no rule: it looked at this
+ * tool call and there was nothing of its concern in it.
+ */
+export function foldOwn(name, verdicts) {
+  const folded = fold(verdicts);
+  return { decision: folded.decision, check: name, rule: folded.rule, reason: folded.reason };
+}
+
+/**
  * Run every check that applies to this input and fold the result.
  *
  * A check that throws is recorded as an abstention rather than taking the whole

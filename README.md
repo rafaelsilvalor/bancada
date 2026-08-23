@@ -32,7 +32,10 @@ ArchUnit, dependency-cruiser, import-linter — already solved *how* to check a
 layering rule. What they get wrong is *when*: a check that runs in CI after the
 pull request is open teaches the agent nothing, because the agent is gone.
 bancada runs the same check at `PreToolUse`, so the violation is refused in the
-turn that created it and the reason goes straight back to the model.
+turn that created it and the reason goes straight back to the model. That holds
+for a file written with `cat > file <<'EOF'` as much as through the write tools —
+it did not until it was measured, and `bancada doctor` now prints which routes
+each write gate reaches rather than only that it is on.
 
 **Context is spent without anyone counting.** A subagent that researches in an
 isolated window and returns a summary is a real saving — but a *custom* subagent

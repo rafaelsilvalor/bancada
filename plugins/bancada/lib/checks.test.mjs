@@ -6,6 +6,7 @@ import { dispatch } from "./dispatch.mjs";
 import { secretsCheck } from "./checks/secrets.mjs";
 import { sizeCheck } from "./checks/size.mjs";
 import { pairCheck } from "./checks/pair.mjs";
+import { structureCheck } from "./checks/structure.mjs";
 import { greenCheck } from "./checks/green.mjs";
 
 const NL = String.fromCharCode(10);
@@ -178,4 +179,128 @@ test("a clean write passes every gate that looked at it", async () => {
     ["secrets", "size"],
     "the commit and layering gates did not apply and left no verdict",
   );
+});
+
+// --- the shell route, which three of these gates used to be blind to ---
+//
+// Measured before any of this existed, six paired payloads through the real
+// entry point: 5 of 6 were refused by the write route and allowed by the shell
+// route, because `applies` accepted only a write tool. The pairs below are the
+// unit-level half of that; `hooks/wiring.test.mjs` spawns the entry point.
+
+const shell = (command) => ({ tool_name: "Bash", tool_input: { command } });
+const heredoc = (path, ...body) => shell([`cat > ${path} <<'EOF'`, ...body, "EOF"].join(NL));
+const layered = (over) =>
+  config(
+    merge(
+      {
+        source: { include: ["src/**"] },
+        gates: {
+          structure: {
+            enabled: true,
+            layers: [
+              { name: "lib", match: "src/lib/**", mayImport: [] },
+              { name: "hooks", match: "src/hooks/**", mayImport: ["lib"] },
+            ],
+          },
+        },
+      },
+      over ?? {},
+    ),
+  );
+
+test("the three write gates apply to a shell command that writes, and not to one that does not", () => {
+  const c = layered({ gates: { size: { enabled: true } }, pair: { enabled: true } });
+  const writes = heredoc("src/lib/a.mjs", "x");
+  const roled = { ...writes, agent_type: "code" };
+  assert.equal(structureCheck.applies(writes, c), true);
+  assert.equal(sizeCheck.applies(writes, c), true);
+  assert.equal(pairCheck.applies(roled, c), true);
+  for (const check of [structureCheck, sizeCheck]) {
+    assert.equal(check.applies(shell("npm test"), c), false, `${check.name} on a command that writes nothing`);
+  }
+});
+
+test("a layer crossing written by heredoc is refused, as the same content through Write is", () => {
+  const c = layered();
+  const source = 'import { entry } from "../hooks/entry.mjs";';
+  const byTool = structureCheck.run(write("src/lib/a.mjs", source), c);
+  const byShell = structureCheck.run(heredoc("src/lib/a.mjs", source), c);
+  assert.equal(byTool.decision, "deny");
+  assert.equal(byShell.decision, "deny");
+  assert.equal(byShell.rule, "structure-layer");
+  assert.equal(byShell.reason, byTool.reason, "the same violation earns the same reason by either route");
+});
+
+test("a shell write the gate cannot read is a recorded gap, not a silent pass", () => {
+  const c = layered();
+  const v = structureCheck.run(shell("sed -i '1i import x' src/lib/a.mjs"), c);
+  assert.equal(v.decision, "allow");
+  assert.equal(v.rule, "structure-unreadable", "so bancada yield can count how often the gate could not look");
+});
+
+test("an unreadable write no layer claims is outside, not a gap worth counting", () => {
+  const c = layered();
+  const v = structureCheck.run(shell("sed -i '1i x' docs/readme.md"), c);
+  assert.equal(v.rule, "structure-outside");
+});
+
+test("a heredoc past the ceiling is refused, and an append is judged against the file", () => {
+  const c = layered({ gates: { size: { enabled: true, maxFileLines: 10 } } });
+  const fresh = sizeCheck.run(heredoc("src/lib/big.mjs", lines(40)), c, {
+    readFile: () => {
+      throw new Error("ENOENT");
+    },
+  });
+  assert.equal(fresh.decision, "deny");
+  assert.equal(fresh.rule, "size-over");
+
+  const appended = sizeCheck.run(shell(["cat >> src/lib/big.mjs <<'EOF'", lines(6), "EOF"].join(NL)), c, {
+    readFile: () => lines(6),
+  });
+  assert.equal(appended.decision, "deny", "6 lines added to 6 is over a ceiling of 10");
+});
+
+test("one command writing two files reports only the file that broke a rule", () => {
+  const c = layered({ gates: { size: { enabled: true, maxFileLines: 10 } } });
+  const command = [
+    "cat > src/lib/ok.mjs <<'EOF'",
+    "export const a = 1;",
+    "EOF",
+    "cat > src/lib/big.mjs <<'EOF'",
+    lines(40),
+    "EOF",
+  ].join(NL);
+  const v = sizeCheck.run(shell(command), c, { readFile: () => null });
+  assert.equal(v.decision, "deny");
+  assert.equal(v.check, "size", "one check's name, not one per file it judged");
+  assert.match(v.reason, /src\/lib\/big\.mjs/);
+  assert.doesNotMatch(v.reason, /src\/lib\/ok\.mjs/);
+});
+
+test("a shell write outside source.include is measured by nothing, not measured as unknown", () => {
+  const c = layered({ gates: { size: { enabled: true, maxFileLines: 10 } } });
+  const v = sizeCheck.run(shell("sed -i '1i x' docs/readme.md"), c, { readFile: () => lines(40) });
+  assert.equal(v.decision, "allow");
+  assert.equal(v.rule, undefined, "no verdict at all: this file is not the size gate's business");
+});
+
+test("the pair gate needs no text, so even an unreadable shell write is judged", () => {
+  const c = config({ pair: { enabled: true } });
+  const v = pairCheck.run({ ...shell("sed -i '1i x' src/a.test.mjs"), agent_type: "code" }, c);
+  assert.equal(v.decision, "deny");
+  assert.equal(v.rule, "pair-code-writes-test");
+});
+
+test("a heredoc that breaks two rules at once reports both", async () => {
+  const c = layered({ gates: { size: { enabled: true, maxFileLines: 5 } } });
+  const command = [
+    "cat > src/lib/a.mjs <<'EOF'",
+    'import { entry } from "../hooks/entry.mjs";',
+    lines(40),
+    "EOF",
+  ].join(NL);
+  const r = await dispatch(shell(command), c, PRE_TOOL_USE_CHECKS, "PreToolUse");
+  assert.equal(r.decision, "deny");
+  assert.equal(r.check, "size+structure");
 });

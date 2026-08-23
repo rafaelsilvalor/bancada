@@ -21,6 +21,13 @@ const CATALOG = {
     "doctor.gates": () => "Gates",
     "doctor.gate.on": ({ name }) => `on   ${name}`,
     "doctor.gate.off": ({ name }) => `off  ${name}`,
+    "doctor.routes": () => "Write routes",
+    "doctor.routes.judged": () => "judged  a write tool, and a shell command carrying its own text (a heredoc, a here-string)",
+    "doctor.routes.unseen": () =>
+      "unseen  text a command line does not carry: sed -i, a redirect fed by another program, a build step",
+    "doctor.routes.counted": () =>
+      "        those are recorded as structure-unreadable and size-unknown, so bancada yield says how often",
+    "doctor.routes.pair": () => "pair    judges every recognised route: its verdict needs the path, not the text",
     "doctor.globs": () => "Glob coverage",
     "doctor.glob.matches": ({ setting, count }) => `${count} file(s)  ${setting}`,
     "doctor.glob.empty": ({ setting }) => `no matches  ${setting}  — this setting guards nothing`,
@@ -61,6 +68,14 @@ const CATALOG = {
     "doctor.gates": () => "Gates",
     "doctor.gate.on": ({ name }) => `on   ${name}`,
     "doctor.gate.off": ({ name }) => `off  ${name}`,
+    "doctor.routes": () => "Rotas de escrita",
+    "doctor.routes.judged": () =>
+      "julgada  ferramenta de escrita, e comando de shell que carrega o próprio texto (heredoc, here-string)",
+    "doctor.routes.unseen": () =>
+      "cega     texto que a linha de comando não carrega: sed -i, redirecionamento vindo de outro programa, build",
+    "doctor.routes.counted": () =>
+      "         esses ficam como structure-unreadable e size-unknown, então o bancada yield diz quantas vezes",
+    "doctor.routes.pair": () => "pair     julga toda rota reconhecida: o veredito precisa do caminho, não do texto",
     "doctor.globs": () => "Cobertura dos globs",
     "doctor.glob.matches": ({ setting, count }) => `${count} arquivo(s)  ${setting}`,
     "doctor.glob.empty": ({ setting }) => `nenhum match  ${setting}  — esse ajuste não guarda nada`,

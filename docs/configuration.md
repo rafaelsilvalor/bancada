@@ -90,6 +90,43 @@ The only gate that is on by default, which is what decides its patterns.
 - It judges the text a turn introduces. A credential committed before bancada
   was installed is invisible to it — that is a history scan, a different job.
 
+## What counts as a write, for the three gates that judge one
+
+`gates.size`, `gates.structure` and `pair` all judge a file being written, and a
+write tool is not the only way one happens. A session told to work through the
+shell writes with `cat > file <<'EOF'`, `printf ... > file` or `sed -i`, and for
+a while those three gates saw none of it: six paired payloads through the real
+hook, the same violation each way, **5 of 6 refused through `Write` and allowed
+through the shell**. Only `gates.secrets` saw both, because it was the only one
+reading a command line.
+
+They all read both routes now. What that means per route:
+
+- **A write tool** — `Write`, `Edit`, `MultiEdit`, `NotebookEdit`. Fully judged.
+- **A shell command carrying its own text** — a heredoc, or PowerShell's
+  here-string piped into `Set-Content`. Fully judged, and the refusal is the same
+  text a write tool would have earned.
+- **A shell command that names a file without saying what goes in it** —
+  `sed -i`, a redirect fed by another program, `cp`. The path is known and the
+  resulting text is not. `pair` judges it anyway, because its verdict needs only
+  the path. `gates.structure` and `gates.size` cannot, and record the gap as
+  `structure-unreadable` and `size-unknown` so `bancada yield` counts how often
+  they could not look, rather than the silence reading as a clean pass.
+- **A program that writes files of its own accord** — `npm run build`, `make`,
+  `git checkout`, a formatter. Invisible, and named as such in
+  `plugins/bancada/lib/shell-writes.mjs`, which lists every shape it does not
+  read and has a test per entry.
+
+`bancada doctor` prints this split under **Write routes** whenever one of the
+three gates is on, because `on structure` on its own is a claim about coverage
+the gate does not have.
+
+**The two things this does not cover.** `bancada check` sweeps the repository for
+a layering violation that arrived unseen; nothing sweeps for a file over the
+ceiling, so what `gates.size` misses at the hook is missed for good. And
+bancada-flow's Pauses still read write tools only — the same blindness, in the
+plugin that ships disabled.
+
 ## `gates.size` — a ceiling on the resulting file
 
 - The ceiling is on the file the edit produces, not on the edit, so the gate
@@ -103,6 +140,8 @@ The only gate that is on by default, which is what decides its patterns.
   Go repository.
 - It applies only to files `source.include` claims, so a long fixture or a
   generated lockfile is not judged.
+- A file written by shell counts as a write; see [what counts as a
+  write](#what-counts-as-a-write-for-the-three-gates-that-judge-one).
 - There is no sweep for this one: nothing reports how many files are already
   over the ceiling you are about to choose. The stack examples record that count
   for their reference repositories.
@@ -145,6 +184,8 @@ type-checker and your test suite.
   import-linter, depguard — inside `bancada check` instead of reimplementing it.
   It is not run on every edit: a whole-project analyser takes seconds, and
   seconds per edit is a tax nobody keeps paying.
+- A file written by shell counts as a write; see [what counts as a
+  write](#what-counts-as-a-write-for-the-three-gates-that-judge-one).
 - Don't hand-write the layers. `/bancada:structure` derives them from the code
   that exists, counts the violations each proposed rule would create, and writes
   the decision record next to the config.
@@ -158,6 +199,10 @@ type-checker and your test suite.
   under, so the two fit together without configuration.
 - `testGlobs` is read by the size gate too. It is the one setting in this group
   that matters even when the gate is off.
+- This is the one of the three write gates with no blind route at all: the
+  verdict needs the path and not the text, so `sed -i` on a test file is
+  refused as surely as `Edit` on one. There could be no sweep behind it
+  either — which role wrote a line is not a fact the repository keeps.
 
 ## `flow` — the three Pauses
 

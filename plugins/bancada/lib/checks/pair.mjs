@@ -12,11 +12,20 @@
  * refused: a session that entered no role is not doing pair work, and enforcing
  * the split on the owner's own edits would be enforcing a discipline nobody
  * asked to be in. That is also why the gate ships disabled.
+ *
+ * Of the three gates that read `writeTargets`, this is the one the shell route
+ * costs nothing at all: the verdict needs the path and not the text, so
+ * `sed -i src/thing.test.mjs` from the code role is refused as surely as the
+ * same edit through `Edit`. There is no unreadable case here and no coverage gap
+ * to record — and there could be no sweep to fall back on either, because which
+ * role wrote a line is not a fact the repository keeps.
  */
 
 import { checkPair } from "../pair.mjs";
-import { isWrite } from "../writes.mjs";
-import { relativeTarget } from "./where.mjs";
+import { foldOwn } from "../dispatch.mjs";
+import { writeTargets } from "../writes.mjs";
+import { toProjectRelative } from "../structure.mjs";
+import { projectDirOf } from "./where.mjs";
 
 export const pairCheck = {
   name: "pair",
@@ -25,16 +34,15 @@ export const pairCheck = {
   applies(input, config) {
     if (!config.pair.enabled) return false;
     if (typeof input.agent_type !== "string" || input.agent_type === "") return false;
-    return isWrite(input);
+    return writeTargets(input).length > 0;
   },
 
   run(input, config) {
-    const result = checkPair(input.agent_type, relativeTarget(input), config.pair);
-    return {
-      decision: result.decision,
-      check: pairCheck.name,
-      rule: result.rule,
-      reason: result.reason,
-    };
+    const projectDir = projectDirOf(input);
+    const verdicts = writeTargets(input).map((target) => {
+      const result = checkPair(input.agent_type, toProjectRelative(target.path, projectDir), config.pair);
+      return { decision: result.decision, check: pairCheck.name, rule: result.rule, reason: result.reason };
+    });
+    return foldOwn(pairCheck.name, verdicts);
   },
 };

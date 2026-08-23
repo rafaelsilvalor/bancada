@@ -198,3 +198,44 @@ test("a layer with neither matches nor aliases still guards nothing", () => {
   assert.deepEqual(r.summary.emptySettings, ["gates.structure.layers[0].match"]);
   assert.match(r.lines.join("\n"), /layers\[0\]\.match\s+— this setting guards nothing/);
 });
+
+// --- what the write gates actually reach ---
+//
+// `on structure` was all this report said, and it was measured meaning less
+// than it looks: before the gates read a command line, 5 of 6 paired payloads
+// were refused through a write tool and allowed through `cat > f <<'EOF'`. The
+// gates read both routes now and one gap is left, so the report names it.
+
+const routesOf = (override) => {
+  const r = runDoctor({
+    loadConfig: loader(merge({ source: { include: ["src/**/*.ts"] } }, override)),
+    listFiles: filesOf(SAMPLE),
+    env: {},
+  });
+  const from = r.lines.indexOf(t("en", "doctor.routes"));
+  if (from === -1) return null;
+  return r.lines.slice(from + 1, r.lines.indexOf("", from));
+};
+
+test("a project with a write gate on is told which routes reach it", () => {
+  const routes = routesOf({ gates: { structure: { enabled: true } } });
+  assert.ok(routes, "the section should be printed");
+  assert.match(routes.join(" "), /heredoc/, "the route that is judged");
+  assert.match(routes.join(" "), /sed -i/, "and the one that is not");
+  assert.match(routes.join(" "), /structure-unreadable/, "named so it can be looked up in bancada yield");
+});
+
+test("a project with no write gate on is not told about routes it is not using", () => {
+  assert.equal(routesOf({}), null, "structure, size and pair all ship off");
+  assert.equal(routesOf({ gates: { commit: { enabled: true } } }), null);
+});
+
+test("pair gets its own line, because it is the one with no unreadable case", () => {
+  const paired = routesOf({ pair: { enabled: true } });
+  assert.equal(paired.length, 2, "the judged route and pair's own line, with no gap to declare");
+  assert.match(paired.join(" "), /pair/);
+
+  const sized = routesOf({ gates: { size: { enabled: true } } });
+  assert.doesNotMatch(sized.join(" "), /pair /, "pair is off, so its line is not printed");
+  assert.match(sized.join(" "), /size-unknown/);
+});

@@ -196,6 +196,42 @@ test("a layer-crossing write is refused, so the write path reaches the structure
   assert.match(r.stderr, /"lib" layer/);
 });
 
+/**
+ * The same violation by the other route, spawned rather than called.
+ *
+ * This is the case that did not exist while the hole did. Three write gates
+ * accepted only the write tools, so `cat > src/lib/x.mjs <<'EOF'` crossed a
+ * layer boundary unrefused — measured at 5 of 6 paired payloads — and 505 unit
+ * tests were green over it, because every one of them handed a check a write
+ * tool's payload. Reading the verdict off a real spawn is what makes the route
+ * itself the thing under test.
+ */
+test("a layer crossing written by heredoc is refused, the way the same content through Write is", () => {
+  const dir = sandbox(CONFIG);
+  const source = 'import { entry } from "../hooks/entry.mjs";';
+  const command = [`cat > ${join(dir, "src", "lib", "probe.mjs")} <<'EOF'`, source, "EOF"].join(
+    String.fromCharCode(10),
+  );
+  const r = fire("PreToolUse", dir, { tool_name: "Bash", tool_input: { command } });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /"lib" layer/);
+});
+
+test("a shell write the gate cannot read is allowed and lands in the stream as a gap", () => {
+  const dir = sandbox(CONFIG);
+  const r = fire("PreToolUse", dir, {
+    tool_name: "Bash",
+    tool_input: { command: "sed -i '1i import x' src/lib/seed.mjs" },
+  });
+  assert.equal(r.status, 0, "the gate did not look, and a gate that did not look does not refuse");
+  const [record, ...rest] = records(dir);
+  assert.equal(rest.length, 0);
+  assert.equal(record.decision, "allow");
+  // The whole basis for allowing it: the gap is countable in `bancada yield`
+  // rather than being a silence indistinguishable from a clean pass.
+  assert.match(record.rule, /structure-unreadable/);
+});
+
 test("an acceptable commit exits 0 and says nothing on either stream", () => {
   const dir = sandbox(CONFIG);
   const r = fire("PreToolUse", dir, {

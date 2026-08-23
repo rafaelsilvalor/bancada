@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dispatch, fold, PRECEDENCE } from "./dispatch.mjs";
+import { dispatch, fold, foldOwn, PRECEDENCE } from "./dispatch.mjs";
 
 const v = (decision, check, reason = null) => ({ decision, check, reason });
 
@@ -170,4 +170,28 @@ test("checks run in registry order, so the record is stable", async () => {
   });
   await dispatch({}, {}, [mk("a"), mk("b"), mk("c")], "PreToolUse");
   assert.deepEqual(order, ["a", "b", "c"]);
+});
+
+// --- one check over the several files a single tool call writes ---
+
+const own = (decision, rule, reason = null) => ({ decision, check: "size", rule, reason });
+
+test("one check's verdict carries its own name however many files it judged", () => {
+  const r = foldOwn("size", [own("allow", "size-ok"), own("deny", "size-over", "too long")]);
+  assert.equal(r.check, "size", "not size+size, which is what fold would have joined");
+  assert.equal(r.decision, "deny");
+  assert.equal(r.reason, "too long");
+});
+
+test("the rules are still joined, because which rule fired is what the report needs", () => {
+  const r = foldOwn("structure", [own("allow", "structure-unreadable"), own("allow", "structure-ok")]);
+  assert.equal(r.rule, "structure-unreadable+structure-ok");
+});
+
+test("a check with nothing to judge allows and names no rule", () => {
+  const r = foldOwn("size", []);
+  assert.equal(r.decision, "allow");
+  assert.equal(r.check, "size");
+  assert.equal(r.rule, undefined);
+  assert.equal(r.reason, null);
 });
