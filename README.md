@@ -10,8 +10,8 @@ That is the whole design. An instruction in `CLAUDE.md` is a request. A hook tha
 denies the tool call is enforcement. bancada is the second kind, plus the
 telemetry to tell you whether the enforcement is worth what it costs.
 
-> **Status: early. Phase 9 of 10, and nothing is released — the manifests say
-> v0.1.0, no tag exists and no marketplace serves it.**
+> **Status: early. All ten phases are closed and nothing is released — the
+> manifests say v0.1.0, no tag exists and no marketplace serves it.**
 > Six gates exist in the core — commit messages, secrets, file size, layering,
 > the test/code pair, and a green boundary on `Stop` that re-checks until the
 > turn is actually green. The flow plugin adds three Pauses, a brief format with
@@ -71,7 +71,9 @@ core, what has only conviction goes in a package you opt into.
 
 ## Design commitments
 
-These are constraints on the project, checked in CI where a machine can check them.
+These are constraints on the project, checked in CI where a machine can check
+them. What CI checks, and which class of defect each check was measured catching,
+is in the phase 10 entry of the [CHANGELOG](CHANGELOG.md).
 
 1. **Zero npm dependencies in the core.** Node builtins only. A harness that runs
    inside everyone's `PreToolUse` should not carry a dependency tree.
@@ -98,7 +100,7 @@ These are constraints on the project, checked in CI where a machine can check th
 
 ## Project status
 
-Ten phases. This repository is at the end of the ninth.
+Ten phases, all of them closed. The release itself is not.
 
 | Phase | What it delivers | State |
 | --- | --- | --- |
@@ -115,7 +117,11 @@ Ten phases. This repository is at the end of the ninth.
 | 8 | `bancada-flow`: the three Pauses, the brief, four roles | **done** |
 | 8b | Two gaps closed, and one settled by experiment | **done** |
 | 9 | Docs, examples, public v0.1.0 release | docs and examples **done**; the release is not cut |
-| 10 | Full CI | next |
+| 10 | Full CI | **done** |
+
+No version was bumped, no `[Unreleased]` section was closed and no tag exists.
+[`docs/releasing.md`](docs/releasing.md) has the procedure and says which parts
+of it have never been run.
 
 ## Getting started
 

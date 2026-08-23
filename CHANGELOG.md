@@ -514,6 +514,13 @@ no answer is the one that never gets exercised by accident.
   size gate has the same shape and, unlike layering, has no `bancada check`
   sweep to answer "how many files are already over" before the ceiling is
   chosen.
+- **No minimum Node version is declared, so none is tested.** The hooks run in
+  whatever `node` the host resolves, and this repository never says which
+  versions that may be: there is no `engines` field and no statement in the docs.
+  The newest API in any shipped file is `structuredClone`, which puts the real
+  floor at Node 17, but that is a reading of the code and not a promise, and CI
+  tests one version. A consumer on an older Node than the one that happens to
+  work finds out from a hook that fails to load.
 
 **Verified end to end in a real session** (Claude Code v2.1.240, plugin loaded
 with `--plugin-dir`)
@@ -806,3 +813,143 @@ examples leave the layering out for the ordinary reason: it is what
 - The examples were measured on one machine, at one commit per repository, with
   `git ls-files` as the file universe. A repository whose `.gitignore` differs
   will count differently.
+
+**Phase 10 - full CI**
+
+**The question was which defects reach `main` with nothing complaining, not
+which jobs could be added.** Ten defects a person could plausibly commit were
+written into the tree one at a time, and all nine checks the previous CI ran were
+run against each — the 457 unit tests, the four hygiene scripts, and
+`claude plugin validate --strict` on the marketplace and on each of the three
+plugins. The before column was measured on a fresh clone of `97b2d84`, so it is
+the previous CI and not this one with parts switched off. What noticed:
+
+```
+                                                        before  after
+a hook entry point stops emitting its deny              MISSED  test
+the Stop entry point stops emitting its block           MISSED  test
+bancada-flow's entry point cannot load                  MISSED  test
+bancada-flow's entry point stops emitting its deny      MISSED  test
+hooks.json points at a script that does not exist       MISSED  test
+the CLI cannot load                                     MISSED  test
+a layering violation in a file nothing imports          MISSED  bancada check
+a test file outside plugins/*/lib/ never runs           MISSED  test
+a hook entry point cannot load                          cost    test
+a script under scripts/ cannot load                     cost    cost
+```
+
+**Eight of the ten met nothing.** The two the cost check caught, it caught by
+accident and not by looking: `check-cost.mjs` walks each entry point's import
+closure, so a broken import moves files out of one bucket and into another, and
+the *receiving* bucket grows past its tolerance. A typo in a leaf import, which
+moves few enough lines to stay inside 25%, would have passed.
+
+The common shape of the six that involve an entry point: everything under `lib/`
+tests judgement — a payload in, a verdict out — and nothing tested the lines that
+carry that verdict to Claude Code. Deleting
+`if (verdict.decision === "deny") deny(verdict.reason)` from the tool-call
+dispatcher leaves a plugin that refuses nothing at all, and left 457 tests green.
+
+**What was added, all of it inside jobs that already existed**
+
+- `plugins/bancada/hooks/wiring.test.mjs` and
+  `plugins/bancada-flow/hooks/wiring.test.mjs`: 22 tests that read the command
+  out of `hooks/hooks.json`, substitute `${CLAUDE_PLUGIN_ROOT}` the way the host
+  does, spawn it with a payload on stdin, and read the exit code and the streams
+  the way the host reads them. Each runs in a throwaway git repository, because a
+  real spawn writes real telemetry and a run against this repository would put
+  synthetic tool calls into the stream `bancada yield` reports on.
+- Deriving the command from `hooks.json` is what closes the manifest hole.
+  `claude plugin validate --strict` validates a plugin's manifest; it does not
+  open `hooks/hooks.json`. A malformed one fails the per-plugin validation and
+  passes the marketplace validation, and a well-formed one naming a script that
+  does not exist passed both.
+- `bancada check` now runs in the hygiene job, which is the product's own sweep
+  pointed at the repository that ships it. The `PreToolUse` gate already refuses
+  a violation in the turn that writes one — that is the whole argument for
+  gating at the hook — but only for a turn that went through the hook. A
+  violation arriving by merge, from an editor without the plugin, or from a
+  session with the plugin switched off met nothing.
+- The test glob widened from `plugins/*/lib/**/*.test.mjs` to
+  `plugins/*/**/*.test.mjs`. Under the narrower one an always-failing test
+  dropped in `hooks/` was collected by nothing and reported by nothing; it was
+  measured passing CI. Both globs matched the same 26 files before the two
+  wiring files were added, so the widening changed nothing except where a future
+  test file is allowed to live.
+- No new job, and no new dependency. Median of three runs on this machine:
+
+  ```
+  $ node --test "plugins/*/lib/**/*.test.mjs"     457 tests   1662 ms
+  $ node --test "plugins/*/**/*.test.mjs"         479 tests   7493 ms
+  ```
+
+  The 5.8 seconds buys 17 throwaway git repositories and 23 spawns of an entry
+  point, paid once per operating system inside a job that was already running.
+- All four cost buckets are unchanged at 2257 / 660 / 934 / 1143 lines. A test
+  file is in no entry point's import closure, so none of this is paid by anyone
+  running the gates.
+
+**One thing the wiring test pinned rather than fixed.** With `flow.enabled`
+false — the state of a project that enabled the plugin and switched the Pauses
+off — the hook allows, says nothing to the host, and still appends a record
+saying `pause-none`. That is one write per matching tool call to a project the
+Pauses are doing nothing for. It is arguably correct, because the stream is what
+answers "did this Pause ever look" and silence cannot answer it, and it is
+arguably a cost nobody agreed to. The test states the behaviour so that changing
+it has to be a decision.
+
+**The paid sweep gets a button, not a schedule and not a label**
+
+`.github/workflows/verify-hooks.yml` runs `scripts/verify-hooks.mjs` on
+`workflow_dispatch` only. The three sweeps recorded above billed $0.7883,
+$0.9924 and $1.0066 on Haiku, so **about $1.00 a run**, and the workflow fails
+with that number rather than skipping when `ANTHROPIC_API_KEY` is absent — a run
+that quietly did nothing and reported success is the silent coverage gap the
+fourth design commitment forbids.
+
+- **Not on a label or on `pull_request`.** The script needs a credential, and a
+  fork's pull request cannot read secrets. A label trigger would therefore
+  either fail for the contributors it is meant to serve, or be written with
+  `pull_request_target` plus a checkout of the pull request's head — which runs a
+  stranger's code with this repository's API key. That is an exfiltration path
+  bought for $1 of coverage.
+- **Not on a schedule**, and that is a decision left open rather than one taken.
+  The case for one is real: the hook contract lives in Claude Code, not here, and
+  it has moved under this project twice — `pluginConfigs` stopped being read from
+  project settings in v2.1.207, and the `ask` path turned out to be exit 0 with
+  JSON on stdout. A cron entry is what catches the third one without a human
+  remembering. It is also a standing charge, about $12 a year monthly or $52
+  weekly, and whose money that is decides it.
+- What running it on a runner buys over running it locally is a frozen tree. The
+  script points `--plugin-dir` at `plugins/` live, so editing the plugin during a
+  sweep makes the report mix two versions and look like a clean pass — already
+  paid for once, at about $0.60.
+- **This workflow has never been run.** The script has, three times, on Windows.
+  What is untested is the file: the secret plumbing, the CLI install, and whether
+  `claude -p` behaves the same in a container. Recorded here rather than
+  discovered by the first person to press the button.
+
+**Considered and not added**
+
+- **A second Node version in the matrix.** Nothing in this repository declares a
+  minimum Node version — no `engines`, no statement in the README or the docs —
+  so a second leg would test a contract nobody has written down, and picking one
+  in a CI file would make a guess look like a decision. That is the failure
+  `check-cost.mjs` exists to prevent, applied to a version floor instead of a
+  line count. What the shipped code actually needs was measured: the newest API
+  in any file inside an entry point's closure is `structuredClone`, which is Node
+  17, and `path.matchesGlob` is named only in the comment explaining why it is
+  not used. The floor is therefore low and untested, and the two facts are
+  separate: the *product* needs Node 17 or later, while `node --test` with a glob
+  pattern needs Node 21 or later and is a fact about this CI, not about bancada.
+  The instrument is in place — the wiring tests spawn the entry points on
+  whatever Node the matrix supplies — so declaring a floor is all that is left,
+  and it is the owner's to declare.
+- **A syntax check over the scripts CI never runs** — `verify-hooks.mjs`,
+  `verify-cases.mjs`, `measure-green-fallback.mjs`, `measure-probe.mjs`. A break
+  in one of those announces itself on the next run, at no cost and with no
+  ambiguity, so a job to find it earlier buys a few seconds on every pull request
+  for the rest of the project's life.
+- **A separate job for `bancada check`.** One second of work behind fifteen
+  seconds of runner start. It is a step in `hygiene`, which is where the other
+  repository-wide invariants are.

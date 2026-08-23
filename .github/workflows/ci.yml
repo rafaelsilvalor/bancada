@@ -21,6 +21,12 @@ jobs:
       - name: Validate marketplace manifest
         run: claude plugin validate . --strict
 
+      # Per plugin as well as for the catalog, because the two see different
+      # things. A malformed hooks/hooks.json fails here and passes the
+      # marketplace check above; neither of them opens the file to ask whether
+      # the script a hook names exists. That last gap is covered by the wiring
+      # tests in the `test` job, which read the command out of hooks.json and
+      # spawn it.
       - name: Validate plugin manifests
         run: |
           for p in plugins/*/; do
@@ -44,8 +50,14 @@ jobs:
       # bancada has zero npm dependencies on purpose: a harness that runs in
       # everyone's PreToolUse should not carry a dependency tree. There is
       # nothing to install, so there is no install step.
-      - name: Run unit tests
-        run: node --test "plugins/*/lib/**/*.test.mjs"
+      #
+      # The glob is `plugins/*/**` rather than `plugins/*/lib/**`. Under the
+      # narrower one a test file anywhere but `lib/` was collected by nothing and
+      # reported by nothing — an always-failing test dropped in `hooks/` was
+      # measured passing CI. The wiring tests live next to the entry points they
+      # spawn, which is where a reader looks for them.
+      - name: Run unit and wiring tests
+        run: node --test "plugins/*/**/*.test.mjs"
 
   hygiene:
     runs-on: ubuntu-latest
@@ -55,6 +67,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+
+      # The layering sweep, run on this repository by its own gate. The
+      # PreToolUse hook already refuses a violation in the turn that writes one,
+      # which is the whole argument for gating at the hook rather than in CI —
+      # but only for a turn that went through the hook. A violation arriving by
+      # merge, from an editor without the plugin, or from a session with the
+      # plugin switched off met nothing at all: an offending import in a file
+      # nothing else imports passed all nine checks of the previous CI and was
+      # caught by this command in one line.
+      - name: No layering violation in this repository
+        run: node plugins/bancada/bin/bancada.mjs check
 
       # No rule-identifier scheme, one of the design commitments in README.md:
       # bancada must not introduce one that a consumer would inherit, because a

@@ -1,0 +1,97 @@
+# The end-to-end sweep, on a button rather than on a schedule or a label.
+#
+# `scripts/verify-hooks.mjs` starts real Claude Code sessions and reads the
+# refusals off them. It is the only thing in this repository that proves the
+# wiring between a session and a hook, and it costs real money: the three sweeps
+# recorded in the CHANGELOG billed $0.7883, $0.9924 and $1.0066 on Haiku, so call
+# it **about $1.00 a run**.
+#
+# Why a button and not the other two options:
+#
+# **Not on `pull_request`, and not on a label.** The script needs a credential.
+# A pull request from a fork cannot read secrets, so a label-triggered run would
+# either fail for the contributors it is meant to serve, or be written with
+# `pull_request_target` and a checkout of the pull request's own head — which
+# runs a stranger's code with this repository's API key. That is a credential
+# exfiltration path in exchange for $1 of coverage, and no framing makes it a
+# good trade.
+#
+# **Not on a schedule.** A cron entry is a standing charge — about $12 a year
+# monthly, $52 weekly — and nobody has decided to pay it. The argument for one is
+# real: the hook contract lives in Claude Code, not here, and it has moved under
+# this project twice already (`pluginConfigs` stopped being read from project
+# settings in v2.1.207, and the `ask` path turned out to be exit 0 with JSON on
+# stdout). A schedule is what would catch the third one without a human
+# remembering. Turning it on is one `schedule:` block and the owner's decision,
+# not this file's.
+#
+# What running it here buys over running it locally: the tree is frozen. The
+# script points `--plugin-dir` at `plugins/` live, so editing the plugin during a
+# local sweep makes the report mix two versions and look like a clean pass —
+# already paid for once, at about $0.60. A runner cannot be edited mid-run.
+#
+# **This workflow has never been run.** The script has, three times, on Windows;
+# what is untested is this file — the secret plumbing, the CLI install, and
+# whether `claude -p` behaves the same in a container. The first person to press
+# the button should record what happened, the way `docs/releasing.md` asks of the
+# marketplace path.
+
+name: verify-hooks
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Model to run the sessions on'
+        required: false
+        default: 'haiku'
+      only:
+        description: 'Substring of a case name, to run one case instead of all of them'
+        required: false
+        default: ''
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    # Well above the ~5 minutes a full sweep takes locally, and far below the
+    # point where a hung session burns an afternoon of runner time.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      # Fail loudly rather than skip. A run that quietly did nothing and reported
+      # success is the silent coverage gap this project's fourth design
+      # commitment exists to forbid.
+      - name: Require the credential the sweep spends
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::ANTHROPIC_API_KEY is not set on this repository, so no session can start."
+            echo "This sweep costs about \$1.00 a run. Add the secret before dispatching it."
+            exit 1
+          fi
+
+      # The inputs arrive through `env`, not through `${{ }}` inside the script.
+      # An expression is substituted into the shell before the shell parses it,
+      # so a dispatch input containing a shell metacharacter would be a command,
+      # not an argument. Only someone with write access can dispatch this, which
+      # bounds the damage without making it correct.
+      - name: Sweep
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          MODEL: ${{ inputs.model }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          if [ -n "$ONLY" ]; then
+            node scripts/verify-hooks.mjs --model "$MODEL" --only "$ONLY"
+          else
+            node scripts/verify-hooks.mjs --model "$MODEL"
+          fi

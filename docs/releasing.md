@@ -8,10 +8,19 @@ from disagreeing.
 
 **1. CI is green on the commit you are about to tag.** Everything that has to
 pass is in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml): the unit
-tests on three operating systems, manifest validation, and the four hygiene
-checks — no inherited rule identifiers, cost against the recorded baseline, the
-schema and settings table against the SPEC, and the example configs against the
-validator.
+and wiring tests on three operating systems, manifest validation for the catalog
+and for each plugin, and the five hygiene checks — no layering violation in this
+repository, no inherited rule identifiers, cost against the recorded baseline,
+the schema and settings table against the SPEC, and the example configs against
+the validator.
+
+**1b. Decide whether to run the paid sweep on this commit.**
+[`verify-hooks.yml`](../.github/workflows/verify-hooks.yml) is the only thing
+that proves the gates fire inside a real session, and it is on a button rather
+than in CI because it bills about $1.00 a run. Nothing in the checklist requires
+it; a release that skips it is a release whose end-to-end evidence is the last
+sweep somebody ran, and the CHANGELOG should say which one. That workflow has
+never been run — the script has, locally.
 
 **2. Decide the number.** What forces a MAJOR bump is stated at the top of
 [`CHANGELOG.md`](../CHANGELOG.md), and it is about behaviour a consumer depends
