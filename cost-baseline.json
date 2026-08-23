@@ -1,8 +1,8 @@
 {
-  "hotPathLines": 2257,
+  "hotPathLines": 2674,
   "stopLines": 660,
   "flowLines": 934,
-  "cliLines": 1143,
+  "cliLines": 1355,
   "hotPathFiles": [
     "plugins/bancada/hooks/pre-tool-use.mjs",
     "plugins/bancada/lib/checks/commit.mjs",
@@ -21,6 +21,7 @@
     "plugins/bancada/lib/imports.mjs",
     "plugins/bancada/lib/pair.mjs",
     "plugins/bancada/lib/secrets.mjs",
+    "plugins/bancada/lib/shell-writes.mjs",
     "plugins/bancada/lib/size.mjs",
     "plugins/bancada/lib/structure.mjs",
     "plugins/bancada/lib/telemetry.mjs",
@@ -46,6 +47,7 @@
   ],
   "cliFiles": [
     "plugins/bancada/bin/bancada.mjs",
+    "plugins/bancada/lib/args.mjs",
     "plugins/bancada/lib/checks/index.mjs",
     "plugins/bancada/lib/doctor.mjs",
     "plugins/bancada/lib/files.mjs",
