@@ -22,6 +22,12 @@
  * The cases themselves, and the throwaway repository they run in, are in
  * `verify-cases.mjs`.
  *
+ * **Do not edit the plugin while this is running.** `--plugin-dir` points at
+ * `plugins/` live, so a run that starts before an edit and ends after it reports
+ * a mixture of two versions, and the report looks exactly like a clean pass.
+ * Nothing here can detect that. It cost about $0.60 to find out, on a sweep that
+ * had to be thrown away and paid for twice.
+ *
  * This costs real API usage and is not part of `npm test`.
  *
  *   node scripts/verify-hooks.mjs [--model haiku] [--keep] [--only <substring>]

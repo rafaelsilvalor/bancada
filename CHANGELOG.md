@@ -327,21 +327,9 @@ all, so this case measures the model as well as the gate.
   headings translate; the validator's own strings do not, because it returns
   formatted text rather than keys. Fixing it properly means the validator
   returning `{key, params}` — a deliberate change, not a patch.
-- Whether a plugin can ship `.claude/rules/` was established by omission from the
-  official component table, not by experiment. **Settled by experiment at the end
-  of this release: it cannot.**
 - Deny reasons from the four new gates are English whatever `language` says.
   They are formatted text, the same shape as the validator's strings above, and
   they get fixed by the same change.
-- The green boundary trusted `git status` to say what changed. In a directory that
-  is not a git repository it could not tell, so it re-ran on every stop inside a
-  blocking sequence and relied on the host's cap to end it. **Closed at the end of
-  this release.**
-- `bancada yield` named gates that never fired from bancada's own registry, so a
-  Pause that was switched on and never fired was invisible to the report that
-  exists to find exactly that. `doctor` covered half of it by listing
-  `flow (bancada-flow)`; the two reports disagreed about what they could see.
-  **Closed at the end of this release.**
 - No gate reads what is already in the repository. The secret gate judges the
   text a turn introduces, so a credential committed before bancada was installed
   is invisible to it; that is `git secrets` over history, a different job. The
@@ -535,9 +523,12 @@ case then passes.
 
 ### Two gaps closed, and one settled by experiment
 
-Three entries from the "Known gaps in this release" list in the `bancada` section
-above, taken one at a time. Each is marked there as well, so the list is not left
-asserting something that has stopped being true.
+Three entries that were in the "Known gaps in this release" list in the `bancada`
+section above, taken one at a time. They are gone from that list rather than
+marked closed in it: that list is a claim about what ships, not a history, and
+somebody installing v0.1.0 should not read "known gaps" and find three things
+that are not gaps. Where the hole existed is recorded here and, for the one that
+was a stated cost of a decision, in that decision's own record.
 
 **The green boundary terminates outside a git repository, which it did not**
 
