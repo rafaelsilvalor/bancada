@@ -8,6 +8,15 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
 
 ## [Unreleased]
 
+## [0.1.0] — 2026-08-25
+
+First release: the seven gates (commit, secrets, size, structure, green,
+pair, colocated), the flow and context plugins, doctor and yield. The
+standing end-to-end evidence is the full sweep on Claude Code v2.1.240
+(Haiku, 13 of 13 conclusive cases), which predates the colocated gate; that
+gate's end-to-end case is written into `scripts/verify-cases.mjs` and has
+not been run in a paid session yet.
+
 ### bancada
 
 **Phase 1 — skeleton**
