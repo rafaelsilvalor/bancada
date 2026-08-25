@@ -23,6 +23,10 @@
       "enabled": false,
       "commands": ["go build ./...", "go vet ./...", "go test ./..."],
       "watch": ["**/*.go"]
+    },
+    "colocated": {
+      "enabled": false,
+      "patterns": ["{stem}_test.{ext}"]
     }
   },
   "pair": {

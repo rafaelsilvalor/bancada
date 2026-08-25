@@ -23,6 +23,10 @@
       "enabled": false,
       "commands": ["npx tsc --noEmit", "npm test"],
       "watch": ["{src,app,components,lib,packages}/**/*.{ts,tsx,mts,cts}"]
+    },
+    "colocated": {
+      "enabled": false,
+      "patterns": ["{stem}.test.{ext}", "{stem}.spec.{ext}", "__tests__/{stem}.test.{ext}"]
     }
   },
   "pair": {

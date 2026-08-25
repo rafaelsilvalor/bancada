@@ -31,6 +31,10 @@
       "enabled": false,
       "commands": ["python -m pytest -q"],
       "watch": ["**/*.py"]
+    },
+    "colocated": {
+      "enabled": false,
+      "patterns": ["test_{stem}.{ext}", "{stem}_test.{ext}"]
     }
   },
   "pair": {

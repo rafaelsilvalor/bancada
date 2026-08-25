@@ -109,3 +109,10 @@ already fits TypeScript — `*.test.*` and `*.spec.*` — and the example adds
 `npx tsc --noEmit` and `npm test` to whatever your project actually runs, then
 switch it on. `npm test` in a package with no `test` script exits non-zero,
 which the boundary reads as a red build.
+
+`gates.colocated` ships off with the patterns filled in — `a.test.ts` or
+`a.spec.ts` next to `a.ts`, or under a `__tests__/` directory. Before switching
+it on, run `bancada doctor` and read the **Test colocation** section: it counts
+how many modules already have a test under these patterns and names the ones
+that do not, which is the list you either shrink or record as dated
+`exceptions` on the day you enable the gate.

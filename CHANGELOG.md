@@ -1277,3 +1277,72 @@ fourth design commitment forbids.
   `hooks/wiring.test.mjs` for whether the decision reaches the caller, including
   one that walks the declared commands and fails if any of them falls past the
   dispatch.
+
+**Phase 11 - the colocated-test gate: a missing test is a visible gap**
+
+- The seventh gate, and the first that judges an absence. Every other gate
+  reads something that exists — a commit message, a written file, a red build —
+  so a module nobody tested fails nothing, refuses nothing and appears in no
+  report. Measured in a consumer repository before this was built: 13 of the 30
+  traps its gotcha catalog documents were guarded by no test at all, 10 of
+  those because the module had no test file, and all six existing gates fully
+  enabled would have caught **0 of the 13**.
+- The rule: every file `source.include` claims (minus `source.exclude`, minus
+  test files as `pair.testGlobs` defines them) has a test found by
+  `gates.colocated.patterns` next to it, is covered by a declared suite, or is
+  excepted on purpose. Enforced on `Stop` — a turn that changed a source file
+  and left it untested is blocked with each missing test path named. Not at
+  `PreToolUse`, because a brand-new module cannot have its test at the instant
+  the module file is written; the creation-order argument and what the choice
+  costs are docs/decisions/0003-colocated-blocks-the-turn-not-the-write.md.
+- Coverage that lives elsewhere is declared, not guessed:
+  `suites: [{ test, covers }]`. A suite whose test file does not exist covers
+  nothing and `doctor` reports it dead. Exceptions are one literal path each,
+  with a required reason and date — the adoption path is switching the gate on
+  with the current gaps written down, and `doctor` reports an exception whose
+  file is gone and one whose file has since gained a test, so the list can only
+  shrink out loud.
+- `bancada doctor` grew a **Test colocation** section, printed whenever
+  `source.include` is non-empty, gate on or off: modules counted against
+  tested, excepted and missing, each missing file named with the path its test
+  was expected at, plus dead suites and stale exceptions. The prose list caps
+  at 20 files; the count never does, and `--json` carries every path.
+- Pointed at the consumer repository that motivated it, with
+  `source.include: ["press/**/*.mjs"]` and default settings, the report names
+  **13 of 23 modules** as missing tests — the same 13 files the unguarded traps
+  live in, matched exactly against the list drawn from the catalog by hand.
+- Run on this repository, the gate found its own medicine bitter twice. The
+  same-directory rule alone would have flagged 31 of 56 modules, 20 of them
+  falsely — tested by `checks.test.mjs` one level up, by the wiring tests that
+  spawn the entry points, or by bancada-flow's pinned-duplicate tests — which
+  is why `suites` exists. After eight suite declarations and one new colocated
+  test (`lib/files.test.mjs`), the honest remainder is **50 of 60 modules
+  tested, 10 excepted, 0 missing**: the ten exceptions are the `scripts/`
+  utilities, each dated 2026-08-25.
+- The size gate refused this work mid-flight: `scripts/verify-cases.mjs` was
+  already past the 300-line ceiling and the new end-to-end case could not be
+  added until the sandbox moved to `scripts/verify-sandbox.mjs`.
+  `lib/config.mjs` was split the same way (`lib/config-types.mjs` now holds the
+  leaf-type validators) to make room for the two new structured types.
+- `lib/files.mjs` stopped listing a worktree-deleted file as present:
+  `git ls-files --cached` keeps a file the working tree no longer has until the
+  deletion is staged, so a test removed with `rm` kept counting as coverage
+  until the next commit. The deleted set is now subtracted, and the wiring for
+  it is a real throwaway repository in `lib/files.test.mjs`.
+- Cost: the turn-end bucket goes from 660 to 977 lines, recorded in the
+  baseline as a decision. The added work per stop is a `git status`, a
+  `git ls-files` and set lookups; no state rides between stops, because
+  re-checking is always affordable and Claude Code's cap of eight consecutive
+  blocks is the backstop. Tests go from 559 to 611.
+- Verified at the spawned-hook level in `hooks/wiring.test.mjs`: the declared
+  `Stop` hook, fired at a real sandbox repository, blocks with the missing path
+  in the reason and allows on the very next stop once the test file exists,
+  untracked and uncommitted. **Not verified end to end in a paid session**: the
+  case is written into `scripts/verify-cases.mjs` (block, then the model writes
+  the named test), but the sweep costs about $1.00 a run and has not been run
+  for this gate. The next button press covers it.
+- Declared limits, all in the decision record: "changed this turn" is what
+  `git status` says, so a turn that commits everything before stopping is asked
+  for nothing, and a tree already carrying an uncovered change when the turn
+  began is asked for it; outside a git repository the boundary does not run and
+  says so in a note on every stop.

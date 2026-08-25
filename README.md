@@ -12,12 +12,15 @@ telemetry to tell you whether the enforcement is worth what it costs.
 
 > **Status: early. All ten phases are closed and nothing is released — the
 > manifests say v0.1.0, no tag exists and no marketplace serves it.**
-> Six gates exist in the core — commit messages, secrets, file size, layering,
-> the test/code pair, and a green boundary on `Stop` that re-checks until the
-> turn is actually green. The flow plugin adds three Pauses, a brief format with
-> a validator and four agent roles, and ships disabled. Every gate has been
-> verified refusing real input inside a real session, bar one caveat each for the
-> pair gate and the Pauses, both recorded in the CHANGELOG. The context plugin
+> Seven gates exist in the core — commit messages, secrets, file size, layering,
+> the test/code pair, a green boundary on `Stop` that re-checks until the
+> turn is actually green, and a colocated-test boundary that blocks a turn
+> leaving a changed module with no test. The flow plugin adds three Pauses, a
+> brief format with a validator and four agent roles, and ships disabled. Every
+> gate but the newest has been verified refusing real input inside a real
+> session — the colocated boundary is verified at the spawned-hook level and its
+> paid session sweep has not been run — bar one caveat each for the
+> pair gate and the Pauses, all recorded in the CHANGELOG. The context plugin
 > ships a probe, a skill factory and a listing-budget meter. Four starting
 > configs live in [`examples/`](examples/), each one's globs counted against real
 > repositories of that stack before it was written. See
@@ -65,7 +68,7 @@ The common thread: **measure the harness, don't just believe it.**
 
 | Plugin | What it does | How sure we are |
 | --- | --- | --- |
-| `bancada` | The engine: config loading, the hook contract, telemetry, six gates, `doctor` and `yield` | The mechanism is proven in prior use; this implementation is new |
+| `bancada` | The engine: config loading, the hook contract, telemetry, seven gates, `doctor` and `yield` | The mechanism is proven in prior use; this implementation is new |
 | `bancada-context` | The probe, the skill factory, the context budget meter | Mechanism is documented by Anthropic; the savings are unmeasured here |
 | `bancada-flow` | Three review Pauses, a brief format with a validator, four agent roles | Weakest evidence of the three. The Pauses are enforced and verified; that they are *worth their friction* is unmeasured. Ships disabled on purpose |
 
@@ -103,7 +106,8 @@ is in the phase 10 entry of the [CHANGELOG](CHANGELOG.md).
 
 ## Project status
 
-Ten phases, all of them closed. The release itself is not.
+Eleven phases: ten closed, the eleventh closed except for its paid end-to-end
+sweep. The release itself is not.
 
 | Phase | What it delivers | State |
 | --- | --- | --- |
@@ -121,6 +125,7 @@ Ten phases, all of them closed. The release itself is not.
 | 8b | Two gaps closed, and one settled by experiment | **done** |
 | 9 | Docs, examples, public v0.1.0 release | docs and examples **done**; the release is not cut |
 | 10 | Full CI | **done** |
+| 11 | The colocated-test gate: a missing test is a visible gap | **done**, bar the paid end-to-end sweep |
 
 No version was bumped, no `[Unreleased]` section was closed and no tag exists.
 [`docs/releasing.md`](docs/releasing.md) has the procedure and says which parts

@@ -38,9 +38,9 @@ as satisfied — for `include`-shaped settings only. An `exclude` matching nothi
 is the normal case and is never flagged.
 
 A gate that is **on and guarding nothing** is reported by the validator itself:
-`green` enabled with no commands, `secrets` with no pattern families, `size`
-with no `source.include`, `structure` with neither layers nor an adapter, a
-`flow` Pause with an empty scope. That state costs the same as a working gate
+`green` enabled with no commands, `secrets` with no pattern families, `size` or
+`colocated` with no `source.include`, `structure` with neither layers nor an
+adapter, a `flow` Pause with an empty scope. That state costs the same as a working gate
 and catches nothing, so it is never allowed to be silent.
 
 ## `language`
@@ -189,6 +189,47 @@ type-checker and your test suite.
 - Don't hand-write the layers. `/bancada:structure` derives them from the code
   that exists, counts the violations each proposed rule would create, and writes
   the decision record next to the config.
+
+## `gates.colocated` — a changed module must have its test
+
+The one gate that asks whether a test is *missing*, which no other gate can
+see: an absent test fails nothing and appears in no report. Runs on `Stop`: a
+turn that changed a source file and left it untested is blocked, with each
+missing test path named. It is not a write gate — a brand-new module cannot
+have its test at the instant the module file is written, so refusing the write
+would refuse scaffolding itself. The turn is the unit asked to contain both
+halves; [decision 0003](decisions/0003-colocated-blocks-the-turn-not-the-write.md)
+records the alternative and why it lost.
+
+- A module is every file `source.include` claims, minus `source.exclude` and
+  minus test files — and what counts as a test is `pair.testGlobs`, the same
+  definition the size gate reads. **Set that glob for your language even with
+  the pair gate off**, or your test files are themselves asked for tests.
+- `patterns` spells out where the test lives, relative to the module's own
+  directory: `{stem}` is the file name without extension, `{ext}` the extension
+  without its dot. The default is `{stem}.test.{ext}`; Python's convention is
+  `test_{stem}.{ext}`, Go's is `{stem}_test.{ext}`, and a pattern may descend
+  (`__tests__/{stem}.test.{ext}`). Any one pattern resolving to a real file
+  covers the module.
+- `suites` declares coverage that lives elsewhere — `{ "test": path, "covers":
+  [globs] }` — for the real shape where one suite exercises a directory. This
+  repository covers `lib/checks/*.mjs` with `lib/checks.test.mjs` one level up.
+  A suite whose test file does not exist covers nothing, and `doctor` reports
+  it dead. Declarations, not import tracing: a guessed mapping wrong in either
+  direction is a silent hole.
+- `exceptions` accepts a gap on purpose: `{ "path", "reason", "date" }`, one
+  literal file each — never a glob, so each one can be checked. They are the
+  adoption path: turn the gate on with the current gaps listed and let
+  `doctor` watch the list shrink. It reports an exception whose file is gone
+  and one whose file has since gained a test.
+- "Changed this turn" is what `git status` says — the same answer the green
+  boundary reads. Declared limits: a tree already carrying an uncovered change
+  when the turn began is asked for that test anyway; a turn that commits
+  everything before stopping is asked for nothing; outside a git repository the
+  boundary does not run and says so in a note. In every case `bancada doctor`
+  still reports the whole repository's colocation, gate on or off, under
+  **Test colocation** — the count, the missing files by expected path, and the
+  state of every suite and exception.
 
 ## `pair` — the role that writes the test is not the role that writes the code
 

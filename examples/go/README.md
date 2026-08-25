@@ -113,3 +113,13 @@ first failure stopping the rest. Switch `gates.green.enabled` on when you are
 ready to pay for a full `go test ./...` at the end of every turn that touched a
 `.go` file; on a large module, set `gates.green.timeoutMs` to something the
 suite fits inside.
+
+## Test colocation is filled in and switched off
+
+`gates.colocated` carries Go's own convention, `mod_test.go` next to `mod.go` —
+the same shape `go test` compiles into the package. Note that the pattern only
+*finds* the test file; what marks files as tests (and so exempts them from
+needing tests of their own) is `pair.testGlobs`, which this example already
+sets to `**/*_test.go`. Run `bancada doctor` and read the **Test colocation**
+section before enabling: the modules it names are the list you either shrink
+or record as dated `exceptions` on day one.

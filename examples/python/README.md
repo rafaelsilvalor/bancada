@@ -89,3 +89,14 @@ number is yours to change — bancada does not pick it.
 virtual environment the session will have. A command that cannot start at all is
 reported as a setup problem and lets the turn end; a command that runs and exits
 non-zero blocks it.
+
+## Test colocation is filled in and switched off
+
+`gates.colocated` carries both Python spellings — `test_mod.py` and
+`mod_test.py` next to `mod.py`. A repository that keeps its tests in a
+`tests/` mirror instead declares that under `gates.colocated.suites`, one
+`{ "test", "covers" }` entry per suite file, rather than by loosening the
+patterns. Run `bancada doctor` first and read the **Test colocation** section:
+it counts how many modules already have a test under these patterns and names
+the rest — the list you either shrink or record as dated `exceptions` on the
+day you switch the gate on.
