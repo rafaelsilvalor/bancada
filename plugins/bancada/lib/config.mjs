@@ -26,6 +26,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { contradictions } from "./config-warnings.mjs";
+import { typeError } from "./config-types.mjs";
 import { DEFAULT_FAMILIES } from "./secrets.mjs";
 
 export const CONFIG_FILENAME = "bancada.config.json";
@@ -43,6 +44,23 @@ export const SPEC = {
   },
 
   gates: {
+    colocated: {
+      enabled: { type: "boolean", default: false },
+      // How a module names its test, relative to the module's own directory.
+      // `{stem}` is the file name without its extension, `{ext}` the extension
+      // without its dot; a pattern may carry a subdirectory. A module is covered
+      // when any pattern resolves to a file that exists.
+      patterns: { type: "string[]", default: ["{stem}.test.{ext}"] },
+      // A test elsewhere, declared as covering a set of modules — the real shape
+      // where one suite exercises a directory. A suite whose test file does not
+      // exist covers nothing, and `doctor` says so.
+      suites: { type: "suite[]", default: [] },
+      // Gaps accepted on purpose, one file each, dated and reasoned. This is the
+      // adoption path: a repository turns the gate on with its current gaps
+      // listed, and the list is meant to shrink. `doctor` reports an exception
+      // whose file is gone, and one whose file now has a test.
+      exceptions: { type: "exception[]", default: [] },
+    },
     commit: {
       enabled: { type: "boolean", default: true },
       conventional: { type: "boolean", default: true },
@@ -132,42 +150,6 @@ export function defaults(spec = SPEC) {
     out[key] = isLeaf(node) ? structuredClone(node.default) : defaults(node);
   }
   return out;
-}
-
-function typeError(kind, value, path, values) {
-  const got = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
-  switch (kind) {
-    case "enum":
-      return values.includes(value) ? null : `${path}: expected one of ${values.join(", ")}, got ${JSON.stringify(value)}`;
-    case "boolean":
-      return typeof value === "boolean" ? null : `${path}: expected a boolean, got ${got}`;
-    case "number":
-      return typeof value === "number" && Number.isFinite(value) ? null : `${path}: expected a number, got ${got}`;
-    case "string":
-      return typeof value === "string" ? null : `${path}: expected a string, got ${got}`;
-    case "string[]":
-      if (!Array.isArray(value)) return `${path}: expected an array of strings, got ${got}`;
-      return value.every((v) => typeof v === "string") ? null : `${path}: every entry must be a string`;
-    case "layer[]": {
-      if (!Array.isArray(value)) return `${path}: expected an array of layers, got ${got}`;
-      for (const [i, layer] of value.entries()) {
-        if (!isPlainObject(layer)) return `${path}[${i}]: expected an object`;
-        if (typeof layer.name !== "string" || layer.name === "") return `${path}[${i}].name: expected a non-empty string`;
-        if (typeof layer.match !== "string" || layer.match === "") return `${path}[${i}].match: expected a glob string`;
-        if (!Array.isArray(layer.mayImport) || !layer.mayImport.every((n) => typeof n === "string")) {
-          return `${path}[${i}].mayImport: expected an array of layer names`;
-        }
-        if (layer.aliases !== undefined) {
-          if (!Array.isArray(layer.aliases) || !layer.aliases.every((a) => typeof a === "string")) {
-            return `${path}[${i}].aliases: expected an array of specifier prefixes`;
-          }
-        }
-      }
-      return null;
-    }
-    default:
-      return null;
-  }
 }
 
 /**
@@ -280,6 +262,11 @@ export function globSettings(config) {
     { setting: "gates.green.watch", globs: config.gates.green.watch, kind: "include" },
     { setting: "pair.testGlobs", globs: config.pair.testGlobs, kind: "include" },
   ];
+  // A suite's `covers` asserts coverage the way an include does: one that
+  // matches no file is a mapping to nothing, and must be shouted about.
+  for (const [i, suite] of (config.gates.colocated.suites ?? []).entries()) {
+    out.push({ setting: `gates.colocated.suites[${i}].covers`, globs: suite.covers, kind: "include" });
+  }
   for (const [i, layer] of (config.gates.structure.layers ?? []).entries()) {
     out.push({
       setting: `gates.structure.layers[${i}].match`,

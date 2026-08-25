@@ -8,6 +8,7 @@ import { sizeCheck } from "./checks/size.mjs";
 import { pairCheck } from "./checks/pair.mjs";
 import { structureCheck } from "./checks/structure.mjs";
 import { greenCheck } from "./checks/green.mjs";
+import { colocatedCheck } from "./checks/colocated.mjs";
 
 const NL = String.fromCharCode(10);
 const lines = (n) => Array.from({ length: n }, (_, i) => `line ${i + 1}`).join(NL);
@@ -158,6 +159,78 @@ test("the green check needs both the flag and at least one command", () => {
     greenCheck.applies({}, config({ gates: { green: { enabled: true, commands: ["npm test"] } } })),
     true,
   );
+});
+
+// --- the colocated check ---
+
+/** A project whose colocation gate is on, plus injectable git and file-list answers. */
+const colocatedOn = (over) =>
+  config(merge({ source: { include: ["src/**"] }, gates: { colocated: { enabled: true } } }, over ?? {}));
+const deps = (changed, files) => ({ changed, listFiles: () => ({ files, source: "git", truncated: false }) });
+
+test("the colocated check needs both the flag and a source.include", () => {
+  assert.equal(colocatedCheck.applies({}, config()), false, "the gate ships off");
+  assert.equal(colocatedCheck.applies({}, config({ gates: { colocated: { enabled: true } } })), false);
+  assert.equal(colocatedCheck.applies({}, colocatedOn()), true);
+});
+
+test("a changed module with no test blocks the stop, naming the test it expected", () => {
+  const v = colocatedCheck.run({}, colocatedOn(), deps(["src/order.mjs"], ["src/order.mjs"]));
+  assert.equal(v.decision, "deny");
+  assert.equal(v.rule, "colocated-missing");
+  assert.match(v.reason, /src\/order\.mjs — expected src\/order\.test\.mjs/);
+});
+
+test("the same change with the test in place is allowed", () => {
+  const v = colocatedCheck.run({}, colocatedOn(), deps(["src/order.mjs"], ["src/order.mjs", "src/order.test.mjs"]));
+  assert.equal(v.decision, "allow");
+  assert.equal(v.rule, "colocated-ok");
+});
+
+test("an uncovered module the turn did not touch is doctor's business, not the stop's", () => {
+  const v = colocatedCheck.run({}, colocatedOn(), deps(["src/other.mjs"], [
+    "src/other.mjs",
+    "src/other.test.mjs",
+    "src/legacy.mjs",
+  ]));
+  assert.equal(v.decision, "allow", "blocking for the whole backlog is how a gate gets switched off");
+});
+
+test("deleting a test blocks the stop even though the module itself never changed", () => {
+  const v = colocatedCheck.run({}, colocatedOn(), deps(["src/order.test.mjs"], ["src/order.mjs"]));
+  assert.equal(v.decision, "deny");
+  assert.match(v.reason, /src\/order\.mjs/);
+});
+
+test("a declared suite and a dated exception both let the stop through", () => {
+  const bySuite = colocatedCheck.run(
+    {},
+    colocatedOn({ gates: { colocated: { suites: [{ test: "src/all.test.mjs", covers: ["src/*.mjs"] }] } } }),
+    deps(["src/order.mjs"], ["src/order.mjs", "src/all.test.mjs"]),
+  );
+  assert.equal(bySuite.decision, "allow");
+
+  const byException = colocatedCheck.run(
+    {},
+    colocatedOn({
+      gates: { colocated: { exceptions: [{ path: "src/order.mjs", reason: "adopting", date: "2026-08-25" }] } },
+    }),
+    deps(["src/order.mjs"], ["src/order.mjs"]),
+  );
+  assert.equal(byException.decision, "allow");
+});
+
+test("where git cannot say what changed, the boundary does not run and says so", () => {
+  const v = colocatedCheck.run({}, colocatedOn(), { changed: null });
+  assert.equal(v.decision, "allow");
+  assert.equal(v.rule, "colocated-unlisted");
+  assert.match(v.note, /doctor/, "the gap stays visible somewhere");
+});
+
+test("a turn that changed nothing has nothing to answer for", () => {
+  const v = colocatedCheck.run({}, colocatedOn(), deps([], ["src/legacy.mjs"]));
+  assert.equal(v.decision, "allow");
+  assert.equal(v.rule, "colocated-unchanged");
 });
 
 // --- through the dispatcher ---

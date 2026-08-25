@@ -37,7 +37,8 @@ import { spawnSync } from "node:child_process";
 import { cpSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { CASES, makeSandbox, SANDBOX_ARTEFACTS } from "./verify-cases.mjs";
+import { CASES, SANDBOX_ARTEFACTS } from "./verify-cases.mjs";
+import { makeSandbox } from "./verify-sandbox.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (name, fallback) => (argv.includes(name) ? argv[argv.indexOf(name) + 1] : fallback);

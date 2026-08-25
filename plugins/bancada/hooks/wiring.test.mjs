@@ -279,6 +279,43 @@ test("a green boundary lets the stop through", () => {
   assert.equal(r.stdout, "");
 });
 
+// --- Stop: the colocation boundary, by the same channel ---
+
+const COLOCATED_CONFIG = {
+  source: { include: ["src/**"] },
+  gates: {
+    colocated: {
+      enabled: true,
+      // The sandbox seeds two modules with no tests; the case under test is the
+      // file the turn changes, not the backlog the sandbox was born with.
+      exceptions: [{ path: "src/hooks/entry.mjs", reason: "sandbox seed", date: "2026-08-25" }],
+    },
+  },
+};
+
+test("a changed module with no test blocks the stop, and stops blocking once the test exists", () => {
+  const dir = sandbox(COLOCATED_CONFIG);
+  writeFileSync(join(dir, "src", "lib", "seed.mjs"), "export const seed = 2;\n");
+
+  const blocked = fire("Stop", dir, { session_id: "wiring-colocated" });
+  assert.equal(blocked.status, 0, "Stop has no exit-2 form");
+  const out = JSON.parse(blocked.stdout);
+  assert.equal(out.decision, "block");
+  assert.match(out.reason, /src[/]lib[/]seed\.mjs — expected src[/]lib[/]seed\.test\.mjs/);
+
+  writeFileSync(join(dir, "src", "lib", "seed.test.mjs"), "export const t = 1;\n");
+  const allowed = fire("Stop", dir, { session_id: "wiring-colocated" });
+  assert.equal(allowed.status, 0);
+  assert.equal(allowed.stdout, "", "an untracked test already counts; nothing waits for a commit");
+});
+
+test("a turn that touched nothing is not asked for anyone else's tests", () => {
+  const dir = sandbox(COLOCATED_CONFIG);
+  const r = fire("Stop", dir, { session_id: "wiring-colocated-clean" });
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, "", "src/lib/seed.mjs has no test, but this turn did not change it");
+});
+
 // --- the telemetry write happens in the real process, before the verdict ---
 
 test("a refusal reaches the stream, and the record names the check that produced it", () => {

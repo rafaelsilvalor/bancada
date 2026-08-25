@@ -171,6 +171,36 @@ test("a test ceiling below the source ceiling is a contradiction worth saying ou
   assert.match(warnings.join("\n"), /testCeiling is below maxFileLines/);
 });
 
+test("colocated enabled with no source.include warns, the same reading the size gate gets", () => {
+  const { warnings } = validate({ gates: { colocated: { enabled: true } } });
+  assert.match(warnings.join("\n"), /gates\.colocated: enabled with no source\.include/);
+});
+
+test("colocated with patterns written empty and no suites warns that nothing can ever count as tested", () => {
+  const base = { source: { include: ["src/**"] } };
+  const emptied = validate({ ...base, gates: { colocated: { enabled: true, patterns: [], suites: [] } } });
+  assert.match(emptied.warnings.join("\n"), /no patterns and no suites/);
+
+  const defaulted = validate({ ...base, gates: { colocated: { enabled: true } } });
+  assert.deepEqual(defaulted.warnings, [], "an absent patterns falls back to the default, which covers");
+});
+
+test("a suite and an exception validate through the SPEC with full paths on refusal", () => {
+  const ok = validate({
+    gates: {
+      colocated: {
+        suites: [{ test: "lib/checks.test.mjs", covers: ["lib/checks/*.mjs"] }],
+        exceptions: [{ path: "scripts/gen.mjs", reason: "CI utility", date: "2026-08-25" }],
+      },
+    },
+  });
+  assert.deepEqual(ok.errors, []);
+
+  const bad = validate({ gates: { colocated: { suites: [{ covers: ["a/**"] }], exceptions: [{ path: "a.mjs" }] } } });
+  assert.match(bad.errors.join("\n"), /gates\.colocated\.suites\[0\]\.test/);
+  assert.match(bad.errors.join("\n"), /gates\.colocated\.exceptions\[0\]\.reason/);
+});
+
 test("structure enabled with only an adapter command does not warn", () => {
   const { warnings } = validate({
     gates: { structure: { enabled: true, adapterCommand: "npx depcruise --output-type err" } },
@@ -272,6 +302,25 @@ test("each configured layer contributes its own include entry", () => {
     ["gates.structure.layers[0].match", "gates.structure.layers[1].match"],
   );
   assert.ok(entries.every((e) => e.kind === "include"));
+});
+
+test("each declared suite contributes its covers globs as an include entry", () => {
+  const config = merge(defaults(), {
+    gates: {
+      colocated: {
+        suites: [
+          { test: "lib/checks.test.mjs", covers: ["lib/checks/*.mjs"] },
+          { test: "hooks/wiring.test.mjs", covers: ["hooks/*.mjs", "bin/*.mjs"] },
+        ],
+      },
+    },
+  });
+  const entries = globSettings(config).filter((e) => e.setting.startsWith("gates.colocated.suites"));
+  assert.deepEqual(
+    entries.map((e) => e.setting),
+    ["gates.colocated.suites[0].covers", "gates.colocated.suites[1].covers"],
+  );
+  assert.ok(entries.every((e) => e.kind === "include"), "a covers matching nothing is a mapping to nothing");
 });
 
 test("a layer's alias count rides along, because a layer can guard without matching a file", () => {

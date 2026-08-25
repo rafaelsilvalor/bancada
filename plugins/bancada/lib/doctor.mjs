@@ -11,6 +11,7 @@
  */
 
 import { compileGlobs, normalisePath } from "./glob.mjs";
+import { colocationReport } from "./colocated.mjs";
 import { globSettings, loadConfig as realLoadConfig } from "./config.mjs";
 import { listProjectFiles as realListFiles, uncoveredDirs } from "./files.mjs";
 import { FOREIGN_CHECKS } from "./checks/index.mjs";
@@ -32,6 +33,7 @@ const GATES = [
   ["size", (c) => c.gates.size.enabled],
   ["green", (c) => c.gates.green.enabled],
   ["structure", (c) => c.gates.structure.enabled],
+  ["colocated", (c) => c.gates.colocated.enabled],
   ["pair", (c) => c.pair.enabled],
   ...FOREIGN_CHECKS.map((c) => [`${c.name} (${c.plugin})`, c.enabled]),
 ];
@@ -154,6 +156,49 @@ export function runDoctor({
     }
   }
 
+  // --- test colocation: the gap a missing test leaves ---
+  //
+  // Printed whenever the project has said what its source is, gate on or off,
+  // because the section is a coverage fact and not a verdict — the same footing
+  // as the blind spots above. This is the count that motivated the gate: in one
+  // consumer repository, 13 of 30 documented traps were guarded by no test at
+  // all, and every other report here said nothing about it. The list is capped;
+  // the count never is, and `--json` carries every path.
+  let colocated = null;
+  if (config.source.include.length > 0) {
+    const MAX_LISTED = 20;
+    const report = colocationReport({
+      files: normalised,
+      source: config.source,
+      settings: config.gates.colocated,
+      testGlobs: config.pair.testGlobs,
+    });
+    lines.push(say("doctor.colocated.title"));
+    lines.push(
+      `  ${say("doctor.colocated.coverage", { tested: report.tested, total: report.total, excepted: report.excepted, missing: report.missing.length })}`,
+    );
+    if (!config.gates.colocated.enabled) lines.push(`  ${say("doctor.colocated.off")}`);
+    for (const m of report.missing.slice(0, MAX_LISTED)) {
+      lines.push(`  ${say("doctor.colocated.missing", { file: m.file, candidate: m.candidates.join(" or ") })}`);
+    }
+    if (report.missing.length > MAX_LISTED) {
+      lines.push(`  ${say("doctor.colocated.more", { n: report.missing.length - MAX_LISTED })}`);
+    }
+    for (const t of report.suites.dead) lines.push(`  ${say("doctor.colocated.deadSuite", { test: t })}`);
+    for (const p of report.exceptions.stale) lines.push(`  ${say("doctor.colocated.stale", { path: p })}`);
+    for (const p of report.exceptions.unneeded) lines.push(`  ${say("doctor.colocated.unneeded", { path: p })}`);
+    lines.push("");
+    colocated = {
+      total: report.total,
+      tested: report.tested,
+      excepted: report.excepted,
+      missing: report.missing.map((m) => m.file),
+      deadSuites: report.suites.dead,
+      staleExceptions: report.exceptions.stale,
+      unneededExceptions: report.exceptions.unneeded,
+    };
+  }
+
   // The skill-listing budget is its own question and is not everyone's problem,
   // so it is opt-in rather than always printed.
   let skills = null;
@@ -162,7 +207,12 @@ export function runDoctor({
     lines.push(...skills.lines, "");
   }
 
-  if (errors.length === 0 && warnings.length === 0 && emptySettings.length === 0) {
+  // A missing test is a coverage fact the section above already states; a dead
+  // suite or a lingering exception is configuration that stopped meaning what
+  // it says, which is a problem in the same class as an empty glob.
+  const colocatedFindings =
+    (colocated?.deadSuites.length ?? 0) + (colocated?.staleExceptions.length ?? 0) + (colocated?.unneededExceptions.length ?? 0);
+  if (errors.length === 0 && warnings.length === 0 && emptySettings.length === 0 && colocatedFindings === 0) {
     lines.push(say("doctor.ok"));
   }
 
@@ -177,6 +227,7 @@ export function runDoctor({
       warnings: warnings.length,
       emptySettings,
       blindSpots: blindSpots.map((b) => b.dir),
+      colocated,
       fileCount: normalised.length,
       fileSource,
       skills: skills?.summary ?? null,

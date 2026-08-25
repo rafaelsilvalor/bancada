@@ -238,6 +238,10 @@ drift from what the gates enforce.
 | `language` | `en` or `pt-BR` | `"en"` |
 | `source.include` | `string[]` | `[]` |
 | `source.exclude` | `string[]` | `["**/node_modules/**","**/dist/**"]` |
+| `gates.colocated.enabled` | `boolean` | `false` |
+| `gates.colocated.patterns` | `string[]` | `["{stem}.test.{ext}"]` |
+| `gates.colocated.suites` | `suite[]` | `[]` |
+| `gates.colocated.exceptions` | `exception[]` | `[]` |
 | `gates.commit.enabled` | `boolean` | `true` |
 | `gates.commit.conventional` | `boolean` | `true` |
 | `gates.commit.maxSubject` | `number` | `72` |

@@ -199,6 +199,90 @@ test("a layer with neither matches nor aliases still guards nothing", () => {
   assert.match(r.lines.join("\n"), /layers\[0\]\.match\s+— this setting guards nothing/);
 });
 
+// --- test colocation: the gap a missing test leaves ---
+
+test("colocation is reported as counted coverage whenever the project has source globs", () => {
+  const r = runDoctor({
+    loadConfig: loader({ source: { include: ["src/**/*.ts"] } }),
+    listFiles: filesOf(SAMPLE),
+    env: {},
+  });
+  const text = r.lines.join("\n");
+  // order.ts has order.test.ts next to it; checkout.ts has nothing.
+  assert.match(text, /1 of 2 module\(s\) have a test; 0 excepted, 1 missing/);
+  assert.match(text, /missing\s+src\/app\/checkout\.ts — expected src\/app\/checkout\.test\.ts/);
+  assert.match(text, /the colocated gate is off, so this is a report, not a boundary/);
+  assert.deepEqual(r.summary.colocated.missing, ["src/app/checkout.ts"]);
+});
+
+test("with no source globs there is no colocation section, since nothing claims to be source", () => {
+  const r = runDoctor({ loadConfig: loader({}), listFiles: filesOf(SAMPLE), env: {} });
+  assert.equal(r.summary.colocated, null);
+  assert.ok(!r.lines.includes(t("en", "doctor.colocated.title")));
+});
+
+test("a dead suite and a lingering exception are findings that suppress the all-clear", () => {
+  const r = runDoctor({
+    loadConfig: loader({
+      source: { include: ["src/**/*.ts"] },
+      gates: {
+        colocated: {
+          enabled: true,
+          suites: [{ test: "src/all.test.ts", covers: ["src/app/**"] }],
+          exceptions: [{ path: "src/gone.ts", reason: "was here", date: "2026-08-25" }],
+        },
+      },
+    }),
+    listFiles: filesOf(SAMPLE),
+    env: {},
+  });
+  const text = r.lines.join("\n");
+  assert.match(text, /suite test does not exist\s+src\/all\.test\.ts/);
+  assert.match(text, /stale exception\s+src\/gone\.ts/);
+  assert.doesNotMatch(text, /No problems found/);
+  assert.equal(r.exitCode, 0, "advice, not a failed command");
+});
+
+test("an exception a test has overtaken is named, so the list shrinks instead of lingering", () => {
+  const r = runDoctor({
+    loadConfig: loader({
+      source: { include: ["src/**/*.ts"] },
+      gates: {
+        colocated: {
+          enabled: true,
+          exceptions: [{ path: "src/domain/order.ts", reason: "no test yet", date: "2026-08-25" }],
+        },
+      },
+    }),
+    listFiles: filesOf(SAMPLE),
+    env: {},
+  });
+  assert.match(r.lines.join("\n"), /exception no longer needed\s+src\/domain\/order\.ts/);
+  assert.deepEqual(r.summary.colocated.unneededExceptions, ["src/domain/order.ts"]);
+});
+
+test("a long missing list is capped in prose and complete in the summary", () => {
+  const many = Array.from({ length: 25 }, (_, i) => `src/m${String(i).padStart(2, "0")}.ts`);
+  const r = runDoctor({
+    loadConfig: loader({ source: { include: ["src/**/*.ts"] } }),
+    listFiles: filesOf(many),
+    env: {},
+  });
+  assert.match(r.lines.join("\n"), /… 5 more; bancada doctor --json carries the full list/);
+  assert.equal(r.summary.colocated.missing.length, 25, "the count and the JSON never truncate");
+});
+
+test("the colocated gate appears in the gate list like any other", () => {
+  const r = runDoctor({
+    loadConfig: loader({ source: { include: ["src/**"] }, gates: { colocated: { enabled: true } } }),
+    listFiles: filesOf(SAMPLE),
+    env: {},
+  });
+  assert.ok(r.summary.gatesOn.includes("colocated"));
+  const off = runDoctor({ loadConfig: loader({}), listFiles: filesOf(SAMPLE), env: {} });
+  assert.match(off.lines.join("\n"), /off\s+colocated/);
+});
+
 // --- what the write gates actually reach ---
 //
 // `on structure` was all this report said, and it was measured meaning less

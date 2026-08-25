@@ -43,6 +43,40 @@ const LAYER_SCHEMA = {
   },
 };
 
+const SUITE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["test", "covers"],
+  properties: {
+    test: {
+      type: "string",
+      minLength: 1,
+      description: "Path of the test file that does the covering. If it does not exist, the suite covers nothing.",
+    },
+    covers: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 1,
+      description: "Globs naming the modules this suite covers.",
+    },
+  },
+};
+
+const EXCEPTION_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["path", "reason", "date"],
+  properties: {
+    path: { type: "string", minLength: 1, description: "The one file this exception excuses. A literal path, not a glob." },
+    reason: { type: "string", minLength: 1, description: "Why the gap is accepted. Required: an undefended exception is a gap, not a decision." },
+    date: {
+      type: "string",
+      pattern: "^\\d{4}-\\d{2}-\\d{2}$",
+      description: "When the exception was accepted, as YYYY-MM-DD.",
+    },
+  },
+};
+
 function leafSchema(node) {
   switch (node.type) {
     case "boolean":
@@ -57,6 +91,10 @@ function leafSchema(node) {
       return { enum: node.values, default: node.default };
     case "layer[]":
       return { type: "array", items: LAYER_SCHEMA, default: node.default };
+    case "suite[]":
+      return { type: "array", items: SUITE_SCHEMA, default: node.default };
+    case "exception[]":
+      return { type: "array", items: EXCEPTION_SCHEMA, default: node.default };
     default:
       return {};
   }

@@ -59,6 +59,20 @@ export function contradictions(raw) {
     }
   }
 
+  if (isPlainObject(g?.colocated) && g.colocated.enabled === true) {
+    // Same reading as the size gate: an empty include is "the project said
+    // nothing", so the gate applies to nothing and looks exactly like a project
+    // whose every module is tested.
+    if ((raw.source?.include ?? []).length === 0) {
+      warnings.push("gates.colocated: enabled with no source.include, so it has no files to check");
+    }
+    // Only when both are *written* empty: an absent patterns falls back to the
+    // default, which covers.
+    if (Array.isArray(g.colocated.patterns) && g.colocated.patterns.length === 0 && (g.colocated.suites ?? []).length === 0) {
+      warnings.push("gates.colocated: no patterns and no suites, so no module can ever count as tested");
+    }
+  }
+
   // Owned by bancada-flow, checked here because this is where the file is read.
   if (isPlainObject(raw.flow) && raw.flow.enabled === true) {
     if ((raw.flow.scope ?? []).length === 0) {
