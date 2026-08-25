@@ -22,7 +22,21 @@ function fromGit(dir) {
     maxBuffer: 32 * 1024 * 1024,
   });
   if (r.error || r.status !== 0) return null;
-  return r.stdout.split(/\r?\n/).filter(Boolean);
+  const files = r.stdout.split(/\r?\n/).filter(Boolean);
+
+  // `--cached` keeps listing a file deleted from the working tree until the
+  // deletion is staged. Every reader here asks what exists *now* — a test
+  // removed with `rm` must stop counting as coverage at the very next stop, not
+  // at the next commit — so the deleted set is subtracted. When the second call
+  // fails the unsubtracted list is returned rather than nothing: a stale entry
+  // is a smaller lie than a file list that vanished.
+  const d = spawnSync("git", ["-C", dir, "ls-files", "--deleted"], {
+    encoding: "utf8",
+    maxBuffer: 32 * 1024 * 1024,
+  });
+  if (d.error || d.status !== 0) return files;
+  const gone = new Set(d.stdout.split(/\r?\n/).filter(Boolean));
+  return gone.size === 0 ? files : files.filter((f) => !gone.has(f));
 }
 
 /**
