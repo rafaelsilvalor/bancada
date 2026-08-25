@@ -8,6 +8,59 @@
     ]
   },
   "gates": {
+    "colocated": {
+      "enabled": true,
+      "suites": [
+        {
+          "test": "plugins/bancada/lib/checks.test.mjs",
+          "covers": ["plugins/bancada/lib/checks/*.mjs"]
+        },
+        {
+          "test": "plugins/bancada/hooks/wiring.test.mjs",
+          "covers": ["plugins/bancada/hooks/*.mjs", "plugins/bancada/bin/*.mjs"]
+        },
+        {
+          "test": "plugins/bancada/lib/config.test.mjs",
+          "covers": ["plugins/bancada/lib/config-warnings.mjs"]
+        },
+        {
+          "test": "plugins/bancada/lib/doctor.test.mjs",
+          "covers": ["plugins/bancada/lib/messages.mjs"]
+        },
+        {
+          "test": "plugins/bancada/lib/structure.test.mjs",
+          "covers": ["plugins/bancada/lib/imports.mjs"]
+        },
+        {
+          "test": "plugins/bancada/lib/adapter.test.mjs",
+          "covers": ["plugins/bancada/lib/run.mjs"]
+        },
+        {
+          "test": "plugins/bancada-flow/hooks/wiring.test.mjs",
+          "covers": ["plugins/bancada-flow/hooks/*.mjs"]
+        },
+        {
+          "test": "plugins/bancada-flow/lib/pinned.test.mjs",
+          "covers": [
+            "plugins/bancada-flow/lib/config.mjs",
+            "plugins/bancada-flow/lib/glob.mjs",
+            "plugins/bancada-flow/lib/paths.mjs"
+          ]
+        }
+      ],
+      "exceptions": [
+        { "path": "scripts/check-cost.mjs", "reason": "hygiene script, run whole by CI on every push", "date": "2026-08-25" },
+        { "path": "scripts/check-docs.mjs", "reason": "hygiene script, run whole by CI on every push", "date": "2026-08-25" },
+        { "path": "scripts/check-no-rule-ids.mjs", "reason": "hygiene script, run whole by CI on every push", "date": "2026-08-25" },
+        { "path": "scripts/gen-schema.mjs", "reason": "generator; CI re-runs it with --check on every push", "date": "2026-08-25" },
+        { "path": "scripts/measure-green-fallback.mjs", "reason": "measurement utility, run by hand; its numbers live in prose", "date": "2026-08-25" },
+        { "path": "scripts/measure-probe.mjs", "reason": "measurement utility, run by hand; its numbers live in prose", "date": "2026-08-25" },
+        { "path": "scripts/measure-shell-writes.mjs", "reason": "measurement utility, run by hand; its numbers live in prose", "date": "2026-08-25" },
+        { "path": "scripts/verify-cases.mjs", "reason": "end-to-end case table; running it costs real API usage", "date": "2026-08-25" },
+        { "path": "scripts/verify-hooks.mjs", "reason": "end-to-end harness; running it costs real API usage", "date": "2026-08-25" },
+        { "path": "scripts/verify-sandbox.mjs", "reason": "end-to-end sandbox; running it costs real API usage", "date": "2026-08-25" }
+      ]
+    },
     "commit": {
       "enabled": true,
       "conventional": true,
