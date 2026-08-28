@@ -53,6 +53,7 @@
         { "path": "scripts/check-docs.mjs", "reason": "hygiene script, run whole by CI on every push", "date": "2026-08-25" },
         { "path": "scripts/check-no-rule-ids.mjs", "reason": "hygiene script, run whole by CI on every push", "date": "2026-08-25" },
         { "path": "scripts/gen-schema.mjs", "reason": "generator; CI re-runs it with --check on every push", "date": "2026-08-25" },
+        { "path": "scripts/measure-gate-precision.mjs", "reason": "measurement utility, run by hand; its numbers live in prose", "date": "2026-08-27" },
         { "path": "scripts/measure-green-fallback.mjs", "reason": "measurement utility, run by hand; its numbers live in prose", "date": "2026-08-25" },
         { "path": "scripts/measure-probe.mjs", "reason": "measurement utility, run by hand; its numbers live in prose", "date": "2026-08-25" },
         { "path": "scripts/measure-shell-writes.mjs", "reason": "measurement utility, run by hand; its numbers live in prose", "date": "2026-08-25" },

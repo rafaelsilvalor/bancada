@@ -8,6 +8,19 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
 
 ## [Unreleased]
 
+### bancada
+
+- `scripts/measure-gate-precision.mjs`: replays a candidate gate against the
+  session transcripts under `~/.claude/projects` and reports what it would have
+  caught against what it would have wrongly blocked. It exists because a gate
+  argued from its target's failure rate is argued from the wrong number — a
+  heredoc ban was proposed on an 8.2% failure rate and measured at 10.5%
+  precision against a 7.2% base rate, costing 8.6 correct blocks per catch. It
+  was dropped, and so was a Write|Edit syntax validator that caught 1 error in
+  four weeks while 16 of 29 arrived through the shell, where it is blind.
+  Loud failures only: silent corruption that reported success is invisible to
+  it, so it cannot settle a gate whose claim is about false greens.
+
 ## [0.1.0] — 2026-08-25
 
 First release: the seven gates (commit, secrets, size, structure, green,
