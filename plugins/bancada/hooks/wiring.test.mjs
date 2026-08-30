@@ -258,7 +258,13 @@ test("a message the gate cannot read escalates on stdout rather than passing in 
   const out = JSON.parse(r.stdout);
   assert.equal(out.hookSpecificOutput.hookEventName, "PreToolUse");
   assert.equal(out.hookSpecificOutput.permissionDecision, "ask");
-  assert.match(out.hookSpecificOutput.permissionDecisionReason, /cannot read/);
+
+  // The reason has to survive the wiring, not just exist in the library: this
+  // is the only place the owner actually reads it. It names the form it hit
+  // and carries the command that would be readable.
+  const reason = out.hookSpecificOutput.permissionDecisionReason;
+  assert.match(reason, /-F\/--file/, "names the flag that made it unreadable");
+  assert.match(reason, /git commit -m "<subject>" -m "<body>"/, "carries the remedy");
 });
 
 // --- Stop: block travels as exit 0 with JSON on stdout, never as exit 2 ---

@@ -10,6 +10,19 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
 
 ### bancada
 
+- The commit gate's `ask` now names which unreadable form it hit and carries
+  the command that would be readable, instead of the one generic sentence it
+  used for all three. `-F`, `--amend --no-edit` and a bare `git commit` are
+  different mistakes with different fixes: telling someone amending to run a
+  plain `git commit -m` creates a second commit rather than editing the first.
+  The old text asked the owner to confirm and taught nothing, so the same `ask`
+  arrived again the next day; it cost a real session an interruption where the
+  owner had to relay the reason back to the agent by hand, because an `ask`
+  routes its text to the human and never to the caller that produced the
+  command. `extractSubject` now tags the extraction with `form`
+  (`file` | `reused` | `editor`) so a caller can branch on it. No decision
+  changed: the three forms were `ask` before and are `ask` now.
+
 - `scripts/measure-gate-precision.mjs`: replays a candidate gate against the
   session transcripts under `~/.claude/projects` and reports what it would have
   caught against what it would have wrongly blocked. It exists because a gate

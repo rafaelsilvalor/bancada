@@ -14,6 +14,12 @@
  * `git commit` with no message, and `--amend --no-edit` all put the subject
  * somewhere this gate has no access to. Those return `unreadable`, and the
  * caller decides — a guess here would be a verdict about text nobody read.
+ *
+ * What it does owe the caller is WHICH of the three it hit and what to type
+ * instead. An `ask` that only says "cannot read the subject" costs the owner a
+ * decision and teaches nobody, so the same one arrives again tomorrow; the
+ * remedy in `UNREADABLE` is the shortest correct edit of the command they
+ * already wrote.
  */
 
 /** Tools whose input is a shell command line. */
@@ -78,12 +84,34 @@ export function isCommitCommand(command) {
  * into the same command line, the message is right there. That is why the
  * heredoc is extracted before this runs.
  */
-function hasUninspectableSource(command) {
-  return (
-    /(?:^|\s)(?:-F|--file)(?:=|\s+)(?!-(?:\s|$))\S/.test(command) ||
-    /(?:^|\s)--no-edit(?:\s|$)/.test(command)
-  );
+function uninspectableForm(command) {
+  if (/(?:^|\s)(?:-F|--file)(?:=|\s+)(?!-(?:\s|$))\S/.test(command)) return "file";
+  if (/(?:^|\s)--no-edit(?:\s|$)/.test(command)) return "reused";
+  return null;
 }
+
+/**
+ * What each unreadable form is, and the command that would be readable.
+ *
+ * Naming the form is the whole point. "bancada cannot read this commit's
+ * subject" tells the owner a gate fired; it does not tell them which flag did
+ * it or what to type instead, so the same `ask` arrives again next time. The
+ * remedy is the shortest correct edit of the command they already wrote.
+ */
+const UNREADABLE = {
+  file: {
+    why: "-F/--file points at a file this gate cannot open",
+    fix: `git commit -m "<subject>" -m "<body>"`,
+  },
+  reused: {
+    why: "--no-edit reuses the message of a commit that already exists",
+    fix: `git commit --amend -m "<subject>" -m "<body>"`,
+  },
+  editor: {
+    why: "there is no inline message, so git would open an editor",
+    fix: `git commit -m "<subject>"`,
+  },
+};
 
 /**
  * Pull the commit subject out of a shell command.
@@ -107,8 +135,9 @@ export function extractSubject(command) {
   const hereString = command.match(/@(['"])\r?\n([\s\S]*?)\r?\n\1@/);
   if (hereString) return inline(hereString[2]);
 
-  if (hasUninspectableSource(command)) {
-    return { kind: "unreadable", subject: null, message: null, why: "message comes from a file or an existing commit" };
+  const form = uninspectableForm(command);
+  if (form) {
+    return { kind: "unreadable", subject: null, message: null, form, why: UNREADABLE[form].why };
   }
 
   // Every -m, not just the first. `git commit -m subject -m body` is an
@@ -123,7 +152,7 @@ export function extractSubject(command) {
   if (parts.length > 0) return inline(parts.join("\n\n"), firstLine(parts[0]));
 
   // A commit with no -m opens an editor; the subject does not exist yet.
-  return { kind: "unreadable", subject: null, message: null, why: "no inline message; git will open an editor" };
+  return { kind: "unreadable", subject: null, message: null, form: "editor", why: UNREADABLE.editor.why };
 }
 
 const firstLine = (s) => String(s).split(/\r?\n/)[0].trim();
@@ -177,12 +206,14 @@ export function decideSubject(extraction, settings) {
   }
 
   if (extraction.kind === "unreadable") {
+    const remedy = UNREADABLE[extraction.form] ?? UNREADABLE.editor;
     return {
       decision: "ask",
       check: "commit-unreadable",
       reason:
-        `bancada cannot read this commit's subject (${extraction.why}), so it was not checked. ` +
-        `Confirm the message follows the project's convention, or re-run with an inline -m.`,
+        `bancada did not check this commit's subject: ${extraction.why}. ` +
+        `Re-run with the message inline and this becomes an ordinary check: ${remedy.fix}. ` +
+        `Or confirm, if you know the message follows the project's convention.`,
     };
   }
 
