@@ -10,6 +10,19 @@ A **MAJOR** bump means one of: a gate now denies what it previously allowed,
 
 ### bancada
 
+- The commit gate decides whether a command is a commit from its SKELETON — the
+  line with heredoc bodies and quoted strings blanked — instead of the raw text.
+  `COMMIT_RE` accepts a newline as a command separator, which is right for a
+  multi-line script and wrong for a newline inside an argument: a `gh pr create
+  --body '...'` whose body quoted `git commit --amend --no-edit` was judged as
+  that commit, and the owner was asked to confirm a command that was not a
+  commit. Extraction still runs on the original text, so `git commit -F - <<EOF`
+  keeps being read inline. Measured over 11.408 shell calls with both versions
+  imported side by side: 10 false positives cured, 9 of which had cost a `deny`
+  or an `ask`; zero real commits lost; and 3 real commits that were escaping the
+  gate entirely are now judged — `git -c user.name="Rafael G. Silva Lor" commit`
+  broke the `\S+` that `GIT_GLOBAL_WITH_VALUE` expects.
+
 - The commit gate's `ask` now names which unreadable form it hit and carries
   the command that would be readable, instead of the one generic sentence it
   used for all three. `-F`, `--amend --no-edit` and a bare `git commit` are

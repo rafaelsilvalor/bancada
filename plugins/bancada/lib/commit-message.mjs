@@ -67,10 +67,56 @@ const COMMIT_RE = new RegExp(
   String.raw`(^|[;&|]|\n)\s*(?:[A-Za-z0-9_]+=\S*\s+)*git\s+(?:(?:${GIT_GLOBAL_WITH_VALUE}|${GIT_GLOBAL_FLAG})\s+)*commit\b`,
 );
 
+/**
+ * The command line with heredoc bodies and quoted strings blanked out.
+ *
+ * `COMMIT_RE` accepts a newline as a command separator, which is right for a
+ * multi-line script and wrong for a newline INSIDE an argument. A `gh pr create
+ * --body '...'` whose body quotes `git commit --amend --no-edit` was read as
+ * that commit, and the owner was asked to confirm a command that was not a
+ * commit at all.
+ *
+ * Blanking is only for DECIDING whether this is a commit. Extraction still runs
+ * on the original text, so `git commit -F - <<'EOF'` keeps working: the
+ * heredoc marker survives here, only its body goes.
+ *
+ * The heredoc terminator is a BACKREFERENCE to the tag, not "the next line that
+ * starts with a word". A first cut used the loose form and blanked the wrong
+ * span — it cut at the line before the `git commit` it was supposed to hide,
+ * leaving it at the start of a line and taking the opening quote with it, so
+ * the quote pass could no longer pair. It read as a commit anyway, which is the
+ * bug it was written to fix.
+ *
+ * Measured over 11.408 shell calls from the session transcripts, with both
+ * versions of this module imported side by side rather than reimplemented:
+ *
+ *   false positives cured                 10   (9 of them cost a deny or an ask)
+ *   real commits lost                      0
+ *   commits that escaped, now judged       3
+ *
+ * The three gained are `git -c user.name="Rafael G. Silva Lor" ... commit`,
+ * which the raw pattern missed entirely: `GIT_GLOBAL_WITH_VALUE` expects `\S+`
+ * after `-c`, and a quoted value with a space in it is not that. They were
+ * going through ungated.
+ *
+ * Two earlier runs of this measurement gave 22 and then 10-with-zero-cost, and
+ * both were wrong: the first used the loose heredoc terminator described above,
+ * the second computed the OLD cost by calling the NEW extraction, which no
+ * longer recognises the command and so reported every one of them as `allow`.
+ * A number from a measurement that imports one version and reasons about the
+ * other is not a measurement of either.
+ */
+function skeleton(command) {
+  return command
+    .replace(/(<<-?\s*['"]?(\w+)['"]?\r?\n)[\s\S]*?(\r?\n\2\b)/g, "$1$3")
+    .replace(/'(?:[^'])*'/g, "''")
+    .replace(/"(?:[^"\\]|\\.)*"/g, '""');
+}
+
 /** True when the command line runs `git commit` rather than merely mentioning it. */
 export function isCommitCommand(command) {
   if (typeof command !== "string") return false;
-  return COMMIT_RE.test(command);
+  return COMMIT_RE.test(skeleton(command));
 }
 
 /**

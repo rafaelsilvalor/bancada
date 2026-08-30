@@ -371,3 +371,49 @@ test("mixed quoting across parts is handled", () => {
   const r = extractSubject("git commit -m \"feat: x\" -m 'Co-Authored-By: Someone'");
   assert.match(r.message, /Co-Authored-By: Someone/);
 });
+
+// --- deciding IS a commit, on the skeleton rather than the raw line --------
+
+test("a command that only QUOTES a git commit is not a commit", () => {
+  // The one that shipped this fix: a PR body documenting the gate itself.
+  const cmd = [
+    `gh pr create --title "x" --body 'Measured:`,
+    "",
+    "```",
+    "git commit --amend --no-edit     GATED",
+    "```",
+    "",
+    "End.'",
+  ].join("\n");
+  assert.equal(isCommitCommand(cmd), false);
+});
+
+test("a heredoc body that mentions git commit is not a commit", () => {
+  // The commit sits at the START of a line inside the body, which is where
+  // the raw pattern read it as a separate command. A body that merely
+  // contains the words mid-line never matched, so it would not discriminate.
+  const cmd = "python - <<'PYEOF'\ntexto = [\"\ngit commit -m fix\n\"]\nPYEOF";
+  assert.equal(isCommitCommand(cmd), false);
+});
+
+test("a real commit after a newline is still a commit", () => {
+  // The newline separator has to keep working for actual multi-line scripts.
+  assert.equal(isCommitCommand('git add -A\ngit commit -m "feat: x"'), true);
+  assert.equal(isCommitCommand('git add -A && git commit -m "feat: x"'), true);
+});
+
+test("a quoted -c value with a space in it no longer hides the commit", () => {
+  // GIT_GLOBAL_WITH_VALUE expects \S+, so the raw line missed this one
+  // entirely — a real commit that went unjudged.
+  const cmd = 'git -c user.name="Rafael G. Silva Lor" -c user.email=r@x.dev commit -m "feat: x"';
+  assert.equal(isCommitCommand(cmd), true);
+});
+
+test("a heredoc-carried message is still read, not blanked away", () => {
+  // Blanking is for deciding only. Extraction still runs on the original, or
+  // `git commit -F - <<EOF` would become unreadable instead of inline.
+  const cmd = "git commit -F - <<'EOF'\nfeat: keep reading this\n\nbody\nEOF";
+  const e = extractSubject(cmd);
+  assert.equal(e.kind, "inline");
+  assert.equal(e.subject, "feat: keep reading this");
+});
