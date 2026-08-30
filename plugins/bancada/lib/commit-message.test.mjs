@@ -168,7 +168,40 @@ test("an unreadable message asks the owner rather than deciding for them", () =>
   const v = decide("git commit -F message.txt");
   assert.equal(v.decision, "ask");
   assert.equal(v.check, "commit-unreadable");
-  assert.match(v.reason, /cannot read this commit's subject/);
+});
+
+test("the ask names which form it hit, so the owner is not left guessing", () => {
+  assert.match(decide("git commit -F message.txt").reason, /-F\/--file/);
+  assert.match(decide("git commit --amend --no-edit").reason, /--no-edit/);
+  assert.match(decide("git commit").reason, /would open an editor/);
+});
+
+test("the ask carries the command that would be readable, not just advice", () => {
+  // Advice the owner cannot act on is what makes the same ask arrive again
+  // tomorrow. Each remedy is the shortest correct edit of what they wrote.
+  assert.match(decide("git commit -F message.txt").reason, /git commit -m "<subject>" -m "<body>"/);
+  assert.match(decide("git commit --amend --no-edit").reason, /git commit --amend -m "<subject>" -m "<body>"/);
+  assert.match(decide("git commit").reason, /git commit -m "<subject>"/);
+});
+
+test("each unreadable form is tagged, so a caller can branch on it", () => {
+  assert.equal(extractSubject("git commit -F message.txt").form, "file");
+  assert.equal(extractSubject("git commit --amend --no-edit").form, "reused");
+  assert.equal(extractSubject("git commit").form, "editor");
+});
+
+test("a readable commit carries no form at all", () => {
+  assert.equal(extractSubject('git commit -m "feat: x"').form, undefined);
+  assert.equal(extractSubject("ls -la").form, undefined);
+});
+
+test("the remedy for -F is not the remedy for --no-edit", () => {
+  // The whole point of naming the form: `-m` alone would lose the amend, and
+  // telling someone amending to run a plain commit creates a second commit.
+  const arquivo = decide("git commit -F message.txt").reason;
+  const reaproveitado = decide("git commit --amend --no-edit").reason;
+  assert.ok(!arquivo.includes("--amend"), "a file commit is not an amend");
+  assert.ok(reaproveitado.includes("--amend"), "an amend must stay an amend");
 });
 
 test("a subject that is not conventional is denied, and the reason says what to write", () => {
